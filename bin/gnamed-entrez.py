@@ -99,6 +99,10 @@ def main(file:str, links:list, encoding:str=None) -> int:
 
             #noinspection PyTypeChecker
             items = [i.strip() for i in line.split('\t')]
+            
+            if items[2] == 'NEWENTRY':
+                line = stream.readline().strip()
+                continue
 
             for idx in range(len(items)):
                 if items[idx] == '-': items[idx] = ""
