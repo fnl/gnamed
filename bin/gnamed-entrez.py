@@ -33,14 +33,47 @@ __author__ = "Florian Leitner"
 __version__ = "0.1"
 synopsis = "load Entrez Gene data into a gnamed DB"
 
-Line = namedtuple('Line',
-    [
-        'species_id', 'id',
-        'symbol', 'locus_tag', 'synonyms', 'dbxrefs', 'chromosome',
-        'map_location', 'name', 'type_of_gene', 'nomenclature_symbol',
-        'nomenclature_name', 'nomenclature_status', 'other_designations',
-        'modification_date'
-    ])
+Line = namedtuple('Line', [
+    'species_id', 'id',
+    'symbol', 'locus_tag', 'synonyms', 'dbxrefs', 'chromosome',
+    'map_location', 'name', 'type_of_gene', 'nomenclature_symbol',
+    'nomenclature_name', 'nomenclature_status', 'other_designations',
+    'modification_date'
+])
+COLNAME = {
+    0: 'species_id',
+    1: 'id',
+    2: 'symbol',
+    3: 'locus_tag',
+    4: 'synonyms',
+    5: 'dbxrefs',
+    6: 'chromosome',
+    7: 'map_loaction',
+    8: 'name',
+    9: 'type_of_gene',
+    10: 'nomenclature_symbol',
+    11: 'nomenclature_name',
+    12: 'nomenclature_status',
+    13: 'other_designations',
+    14: 'modification_date',
+}
+
+# frequently found names in Entrez that are complete trash
+# fields: synonyms, name, nomenclature name, other designations
+JUNK_NAMES = frozenset([
+    'hypothetical protein',
+    'polypeptide',
+    'polyprotein',
+    'predicted protein',
+    'protein',
+    'pseudo',
+    'similar to predicted protein',
+    'similar to conserved hypothetical protein',
+    'similar to hypothetical protein',
+    'similar to polypeptide',
+    'similar to polyprotein',
+    'similar to predicted protein',
+])
 
 # "translation" of dbxref names to the local Namespace names
 TRANSLATE = {
@@ -64,6 +97,9 @@ def addNsAcc(row:Line, ns:str, recordAddFun:Callable):
 
     if acc and acc != '-':
         recordAddFun(ns, acc)
+
+def isGeneSymbol(sym:str) -> bool:
+    return len(sym) < 65 and " " not in sym
 
 def main(file:str, links:list, encoding:str=None) -> int:
     """
@@ -99,7 +135,7 @@ def main(file:str, links:list, encoding:str=None) -> int:
 
             #noinspection PyTypeChecker
             items = [i.strip() for i in line.split('\t')]
-            
+
             if items[2] == 'NEWENTRY':
                 line = stream.readline().strip()
                 continue
@@ -107,7 +143,21 @@ def main(file:str, links:list, encoding:str=None) -> int:
             for idx in range(len(items)):
                 if items[idx] == '-': items[idx] = ""
 
+            # remove any junk names from the official names/symbols
+            for idx in [2, 8, 10, 11]:
+                if items[idx] and items[idx].lower() in JUNK_NAMES:
+                    logging.debug(
+                        'removing %s "%s" from %s:%s',
+                        COLNAME[idx], items[idx], Namespace.entrez, items[1]
+                    )
+                    items[idx] = ""
+
             row = Line._make(items)
+            # example of a bad symbol: gi:835054 (but accepted)
+            assert not row.symbol or len(row.symbol) < 65, \
+                '{}:{} has an illegal symbol="{}"'.format(
+                    Namespace.entrez, row.id, row.symbol
+                )
             record = Record(Namespace.entrez, row.id, row.species_id,
                             symbol=row.symbol, name=row.name)
 
@@ -129,18 +179,32 @@ def main(file:str, links:list, encoding:str=None) -> int:
                 record.symbols.add(row.nomenclature_symbol)
 
             if row.synonyms:
-                record.symbols.update(
-                    sym.strip() for sym in row.synonyms.split('|')
-                )
+                # clean up the synonym mess, moving names to where they
+                # belong, e.g., gi:814702 cites "cleavage and polyadenylation
+                # specificity factor 73 kDa subunit-II" as a gene symbol
+                for sym in row.synonyms.split('|'):
+                    sym = sym.strip()
+
+                    if sym != "unnamed" and sym.lower() not in JUNK_NAMES:
+                        if isGeneSymbol(sym) or len(sym) < 17:
+                            record.symbols.add(sym)
+                        else:
+                            record.names.add(sym)
 
             # parsed name strings
             if row.nomenclature_name:
                 record.names.add(row.nomenclature_name)
 
             if row.other_designations:
-                record.names.update(
-                    name.strip() for name in row.other_designations.split('|')
-                )
+                # as with synonyms, at least skip the most frequent junk
+                for name in row.other_designations.split('|'):
+                    name = name.strip()
+
+                    if name.lower() not in JUNK_NAMES:
+                        if isGeneSymbol(name):
+                            record.symbols.add(name)
+                        else:
+                            record.names.add(name)
 
             loadGeneRecord(session, record, chromosome=row.chromosome)
             line = stream.readline().strip()
