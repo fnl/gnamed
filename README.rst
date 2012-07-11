@@ -25,10 +25,10 @@ Database (databases)
   symbol:VARCHAR(64), name:TEXT
 
 Protein (proteins)
-  *protein_id:BIGINT, species_id:FK_Species, mass:INT/NULL, length:INT/NULL
+  *id:BIGINT, species_id:FK_Species, mass:INT, length:INT
 
 Gene (genes)
-  *gene_id:BIGINT, species_id:FK_Species, chromosome:VARCHAR(32),
+  *id:BIGINT, species_id:FK_Species, chromosome:VARCHAR(32),
   location:VARCHAR(64)
 
 Database2Protein, Database2Gene
@@ -46,6 +46,8 @@ GeneName (gene_names)
 
 ProteinName (protein_names)
   *protein_id:FK_Protein, *name:TEXT
+
+*(Compound) Primary Key
 
 Requirements
 ============
