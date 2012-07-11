@@ -1,3 +1,10 @@
+"""
+.. py:module:: gnamed.progress_bar
+   :synopsis: a progress bar for the command line
+
+.. moduleauthor:: Florian Leitner <florian.leitner@gmail.com>
+.. License: GNU Affero GPL v3 (http://www.gnu.org/licenses/agpl.html)
+"""
 from io import IOBase
 import logging
 import os
