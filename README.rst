@@ -98,4 +98,4 @@ License
 
 GNU Affero GPL version 3 (AGPLv3)
 
-|copy| Florian Leitner 2012. All rights reserved.
+|copy| &copy; Florian Leitner 2012. All rights reserved.
