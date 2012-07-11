@@ -10,32 +10,42 @@ records. The datastore differentiates between names and symbols. The main
 Entity Relationship Model
 =========================
 
+::
 
   [Name,Symbol] <- [Protein] <> [Database] <> [Gene] -> [Name,Symbol]
                          |                      |
                          ---------v     v--------
                                  [Species]
 
-  Species: *id:INT, acronym:VARCHAR(64), common_name:TEXT, scientific_name:TEXT
+Species (species)
+  *id:INT, acronym:VARCHAR(64), common_name:TEXT, scientific_name:TEXT
 
-  Database: *namespace:VARCHAR(32), *accession:VARCHAR(64),
-            version:VARCHAR(16),
-            symbol:VARCHAR(64), name:TEXT
+Database (databases)
+  *namespace:VARCHAR(32), *accession:VARCHAR(64), version:VARCHAR(16),
+  symbol:VARCHAR(64), name:TEXT
 
-  Protein: *protein_id:BIGINT, species_id:FK_Species,
-           mass:INT/NULL, length:INT/NULL
+Protein (proteins)
+  *protein_id:BIGINT, species_id:FK_Species, mass:INT/NULL, length:INT/NULL
 
-  Gene: *gene_id:BIGINT, species_id:FK_Species,
-        chromosome:VARCHAR(32), location:VARCHAR(64)
+Gene (genes)
+  *gene_id:BIGINT, species_id:FK_Species, chromosome:VARCHAR(32),
+  location:VARCHAR(64)
 
-  DB2P/G: *namespace:FK_Database, *accession:FK_Database,
-          *protein_id/gene_id:FK_Protein/Gene,
+Database2Protein, Database2Gene
+  *namespace:FK_Database, *accession:FK_Database,
+  *protein_id/gene_id:FK_Protein/FK_Gene,
 
-  GeneSymbol: *gene_id:FK_Gene, *symbol:VARCHAR(64)
-  ProteinSymbol: *protein_id:FK_Protein, *symbol:VARCHAR(64)
+GeneSymbol (gene_symbols)
+  *gene_id:FK_Gene, *symbol:VARCHAR(64)
 
-  GeneName: *gene_id:FK_Gene, *name:TEXT
-  ProteinName: *protein_id:FK_Protein, *name:TEXT
+ProteinSymbol (protein_symbols)
+  *protein_id:FK_Protein, *symbol:VARCHAR(64)
+
+GeneName (gene_names)
+  *gene_id:FK_Gene, *name:TEXT
+
+ProteinName (protein_names)
+  *protein_id:FK_Protein, *name:TEXT
 
 Requirements
 ============
