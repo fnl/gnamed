@@ -35,7 +35,7 @@ else:
 parser = ArgumentParser(
     usage=_usage, description=_description,
     prog=os.path.basename(sys.argv[0]),
-    epilog="(c) Florian Leitner 2012. All rights reserverd. License: GPL v3."
+    epilog="(c) Florian Leitner 2012. All rights reserverd. License: aGPL v3."
 )
 
 parser.set_defaults(loglevel=logging.WARNING)
