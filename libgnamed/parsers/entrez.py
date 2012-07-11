@@ -79,6 +79,17 @@ def isGeneSymbol(sym:str) -> bool:
 class EntrezParserMixin:
 
     def _parse(self, line:str):
+        # remove the backslash junk in the Entrez data file
+        idx = line.find('\\')
+
+        while idx != -1:
+            if len(line) > idx + 1 and line[idx+1].isalnum():
+                line = '{}/{}'.format(line[:idx], line[idx+1:])
+            else:
+                line = '{}{}'.format(line[:idx], line[idx+1:])
+
+            idx = line.find('\\', idx)
+
         items = [i.strip() for i in line.split('\t')]
 
         # ignore the undocumented "NEWENTRY" junk in the file
