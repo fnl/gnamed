@@ -9,6 +9,7 @@ import logging
 from collections import namedtuple
 import io
 from libgnamed.loader import Namespace, Record, AbstractGeneParser
+from libgnamed.parsers import AbstractParser
 
 Line = namedtuple('Line', [
     'species_id', 'id',
@@ -75,14 +76,7 @@ def isGeneSymbol(sym:str) -> bool:
     """
     return len(sym) < 65 and " " not in sym
 
-class Parser(AbstractGeneParser):
-    """
-    A parser for NCBI Entrez Gene gene_info records.
-    """
-
-    def _setup(self, stream:io.TextIOWrapper):
-        logging.debug("file header:\n%s", stream.readline().strip())
-        return 1
+class EntrezParserMixin:
 
     def _parse(self, line:str):
         items = [i.strip() for i in line.split('\t')]
@@ -153,6 +147,95 @@ class Parser(AbstractGeneParser):
                         record.names.add(name)
 
         self.loadRecord(record, chromosome=row.chromosome)
+        return 1
+
+    def loadRecord(self, record:Record, chromosome:str=None, location:str=None):
+        raise NotImplementedError('mixin')
+
+
+class SpeedLoader(EntrezParserMixin, AbstractParser):
+
+    def setDSN(self, dsn:str):
+        self._dsn = dsn
+
+    def _setup(self, stream:io.TextIOWrapper):
+        self._gene_id = 1
+        self._gene_names = io.StringIO()
+        self._gene_symbols = io.StringIO()
+        self._genes = io.StringIO()
+        self._databases = io.StringIO()
+        self._db2g = io.StringIO()
+        self._links = set()
+        logging.debug("file header:\n%s", stream.readline().strip())
+        return 1
+
+    def _cleanup(self, stream:io.TextIOWrapper):
+        import psycopg2
+
+        for ns, acc in self._links:
+            self._databases.write('\t'.join((ns, acc, '\\N\t\\N\t\\N')))
+            self._databases.write('\n')
+
+        conn = psycopg2.connect(self._dsn)
+        cur = conn.cursor()
+        get = lambda buffer: io.StringIO(buffer.getvalue())
+
+        try:
+            cur.copy_from(get(self._databases), 'databases')
+            cur.copy_from(get(self._genes), 'genes')
+            cur.copy_from(get(self._gene_names), 'gene_names')
+            cur.copy_from(get(self._gene_symbols), 'gene_symbols')
+            cur.copy_from(get(self._db2g), 'db_accessions2gene_ids')
+            cur.execute("ALTER SEQUENCE genes_id_seq RESTART WITH %s",
+                        (self._gene_id,))
+            conn.commit()
+        finally:
+            cur.close()
+            conn.close()
+
+        return 0 # default: no record has been added
+
+    def loadRecord(self, record:Record, chromosome:str=None, location:str=None):
+        gid = str(self._gene_id)
+        self._genes.write('\t'.join((
+            gid, str(record.species_id),
+            '\\N' if location is None else location,
+            '\\N' if chromosome is None else chromosome
+        )))
+        self._genes.write('\n')
+        self._databases.write('\t'.join((
+            record.namespace, record.accession, '\\N',
+            '\\N' if record.symbol is None else record.symbol,
+            '\\N' if record.name is None else record.name
+        )))
+        self._databases.write('\n')
+        self._links.update(record.links)
+        self._db2g.write('\t'.join((
+            record.namespace, record.accession, gid
+        )))
+        self._db2g.write('\n')
+
+        for ns, acc in record.links:
+            self._db2g.write('\t'.join((ns, acc, gid)))
+            self._db2g.write('\n')
+
+        for symbol in record.symbols:
+            self._gene_symbols.write('\t'.join((gid, symbol)))
+            self._gene_symbols.write('\n')
+
+        for name in record.names:
+            self._gene_names.write('\t'.join((gid, name)))
+            self._gene_names.write('\n')
+
+        self._gene_id += 1
+
+class Parser(AbstractGeneParser, EntrezParserMixin):
+    """
+    A parser for NCBI Entrez Gene gene_info records.
+    """
+
+    def _setup(self, stream:io.TextIOWrapper):
+        logging.debug("file header:\n%s", stream.readline().strip())
         return 1
 
     def _cleanup(self, file:io.TextIOWrapper):

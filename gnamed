@@ -2,6 +2,7 @@
 import libgnamed
 import logging
 import sys
+from libgnamed.parsers.entrez import SpeedLoader
 import os
 
 from argparse import ArgumentParser
@@ -161,7 +162,10 @@ elif args.command == 'load' and args.repository:
         if not os.path.exists(file):
             parser.error('file "{}" does not exist'.format(file))
 
-    if args.repository not in REPOSITORIES:
+    if not args.files:
+        parser.error('no input files')
+
+    if args.repository not in REPOSITORIES and args.repository != 'entrezpg':
         parser.error('repository key "{}" unknown'.format(args.repository))
 
     db_url = URL(args.driver, username=args.username, password=args.password,
@@ -173,11 +177,22 @@ elif args.command == 'load' and args.repository:
     except OperationalError as oe:
         parser.error(str(oe.orig).strip())
 
-    repo_parser_module = __import__(
-        'libgnamed.parsers.' + args.repository, globals(), fromlist=['Parser']
-    )
-    repo_parser = repo_parser_module.Parser(*args.files,
-                                            encoding=args.encoding)
+    if args.repository == 'entrezpg':
+        repo_parser = SpeedLoader(*args.files, encoding=args.encoding)
+        userpass = "user={} password={} ".format(
+            args.username, args.password
+        ) if (args.username and args.password) else ""
+        repo_parser.setDSN("{}host={} port={} dbname={}".format(
+            userpass, args.host, args.port, args.database
+        ))
+    else:
+        repo_parser_module = __import__(
+            'libgnamed.parsers.' + args.repository, globals(),
+            fromlist=['Parser']
+        )
+        repo_parser = repo_parser_module.Parser(*args.files,
+                                                encoding=args.encoding)
+
     repo_parser.parse()
 elif args.command == 'init':
     if not os.path.exists(args.file):
