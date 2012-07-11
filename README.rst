@@ -98,6 +98,6 @@ To see a list of available repositories, use::
 License
 =======
 
-GNU Affero GPL version 3 (AGPLv3)
+GNU `Affero GPL <http://www.gnu.org/licenses/agpl.html>`_ version 3 (aGPLv3)
 
-Copyright Florian Leitner 2012. All rights reserved.
+Copyright: Florian Leitner, 2012. All rights reserved.
