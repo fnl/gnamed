@@ -112,7 +112,7 @@ class EntrezParserMixin:
                 db, acc = xref.split(':')
 
                 if db in TRANSLATE:
-                    record.links.add((TRANSLATE[xref], acc))
+                    record.links.add((TRANSLATE[db], acc))
 
         # parsed symbol strings
         if row.nomenclature_symbol:
