@@ -1,5 +1,5 @@
 """
-.. py:module:: gnamed.progress_bar
+.. py:module:: libgnamed.progress_bar
    :synopsis: a progress bar for the command line
 
 .. moduleauthor:: Florian Leitner <florian.leitner@gmail.com>
@@ -15,6 +15,7 @@ import sys
 
 def __termios(fd):
     """ Try to discover terminal width with fcntl, struct and termios. """
+    #noinspection PyBroadException
     try:
         import fcntl, termios, struct
         cr = struct.unpack('hh',
@@ -25,6 +26,7 @@ def __termios(fd):
 
 def __curses():
     """ Try to discover terminal width with curses library. """
+    #noinspection PyBroadException
     try:
         import curses
         curses.setupterm()
@@ -43,6 +45,7 @@ def terminalSize():
         if cr:
             logging.debug("terimanl size from curses.tigetnum")
     if not cr:
+        #noinspection PyBroadException
         try:
             fd = os.open(os.ctermid(), os.O_RDONLY)
             cr = __termios(fd)
@@ -51,6 +54,7 @@ def terminalSize():
         except Exception:
             pass
     if not cr:
+        #noinspection PyBroadException
         try:
             cr = (os.environ['LINES'], os.environ['COLUMNS'])
             logging.debug("terminal size from environment")
@@ -171,7 +175,7 @@ class ProgressBar(object):
             if size == 0 and fraction == 0.0:
                 self.prog_bar = "[%s]" % (' ' * self.width)
             elif size == self.width:
-                self.prog_bar = "[%s]" % (arrow)
+                self.prog_bar = "[%s]" % arrow
             else:
                 self.prog_bar = "[%s>%s]" % (arrow,
                                              ' ' * (self.width - size - 1))
