@@ -15,12 +15,21 @@ REPOSITORIES = {
     'taxa': {
         'url': 'ftp://ftp.ncbi.nih.gov/pub/taxonomy/',
         'resources': [('taxdump.tar.gz', 'taxdump.tar.gz', None)],
-        'description': "NCBI Taxonomy database",
+        'description': "NCBI Taxonomy database dump",
         },
     'entrez': {
         'url': 'ftp://ftp.ncbi.nih.gov/gene/DATA/',
         'resources': [('gene_info.gz', 'gene_info.gz', None)],
-        'description': "NCBI Entrez Gene information file",
+        'description': "NCBI Entrez Gene gene_info file",
+        },
+    'uniprot': {
+        'url': 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/'
+        ,
+        'resources': [
+            ('uniprot_sprot.dat.gz', 'uniprot_sprot.dat.gz', None),
+            ('uniprot_trembl.dat.gz', 'uniprot_trembl.dat.gz', None)
+        ],
+        'description': "UniProtKB TrEMBL/Swiss-Prot text files",
         },
     'hgnc': {
         # see http://www.genenames.org/cgi-bin/hgnc_downloads.cgi for more info
@@ -28,8 +37,7 @@ REPOSITORIES = {
         'resources': [(
             'title=HGNC%20output%20data&col=gd_hgnc_id&col=gd_app_sym&col=gd_app_name&col=gd_prev_sym&col=gd_prev_name&col=gd_aliases&col=gd_name_aliases&col=gd_pub_chrom_map&col=gd_pubmed_ids&col=gd_gene_fam_name&col=gd_gene_fam_pagename&col=gd_pub_eg_id&col=gd_pub_ensembl_id&col=gd_mgd_id&col=md_prot_id&col=md_rgd_id&status=Approved&status_opt=2&where=&order_by=&format=text&limit=&submit=submit&.cgifields=&.cgifields=status&.cgifields=chr&.cgifields=hgnc_dbtag'
             , 'hgnc.csv', 'ISO-8859-1')],
-        'description':
-            "Human Genome Nomenclature Consortium (genenames.org)",
+        'description': "Human Genome Nomenclature Consortium (genenames.org)",
         },
     }
 
