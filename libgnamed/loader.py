@@ -78,7 +78,7 @@ class Record:
     """
 
     def __init__(self, namespace:str, accession:str, species_id:int,
-                 symbol:str=None, name:str=None):
+                 version:str=None, symbol:str=None, name:str=None):
         """
         Initialize with the `Namespace` and accession of that record, the
         official symbol and name of that gene/protein as found in the
@@ -97,6 +97,7 @@ class Record:
         """
         self.namespace = namespace
         self.accession = accession
+        self.version = version
         self.symbol = symbol
         self.name = name
         self.species_id = species_id
@@ -210,7 +211,7 @@ class AbstractGeneParser(AbstractParser):
             logging.debug('creating new Database object %s:%s', *db_key)
             missing_db_keys.remove(db_key)
             db_object = Database(
-                record.namespace, record.accession,
+                record.namespace, record.accession, version=record.version,
                 symbol=record.symbol, name=record.name
             )
             self.session.add(db_object)
