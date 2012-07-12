@@ -10,6 +10,7 @@ from collections import namedtuple
 import io
 from libgnamed.loader import Namespace, Record, AbstractGeneParser
 from libgnamed.parsers import AbstractParser
+from sqlalchemy.schema import Sequence
 
 Line = namedtuple('Line', [
     'species_id', 'id',
@@ -129,6 +130,9 @@ class EntrezParserMixin:
         if row.nomenclature_symbol:
             record.symbols.add(row.nomenclature_symbol)
 
+        if row.locus_tag:
+            record.symbols.add(row.locus_tag)
+
         if row.synonyms:
             # clean up the synonym mess, moving names to where they
             # belong, e.g., gi:814702 cites "cleavage and polyadenylation
@@ -157,90 +161,112 @@ class EntrezParserMixin:
                     else:
                         record.names.add(name)
 
-        self.loadRecord(record, chromosome=row.chromosome)
-        return 1
+        # parsed keyword strings
+        if row.type_of_gene and row.type_of_gene != 'other':
+            record.keywords.add(row.type_of_gene)
 
-    def loadRecord(self, record:Record, chromosome:str=None, location:str=None):
-        raise NotImplementedError('mixin')
+        self.loadRecord(record, chromosome=row.chromosome,
+                        location=row.map_location)
+        return 1
 
 
 class SpeedLoader(EntrezParserMixin, AbstractParser):
+    # note: this approach is actually generic and not entrez specific
+    # however, so far there is no reason to use this approach for any
+    # other database
+    # furthermore, apart from "dump", and "connect", the approaches should be DB
+    # agnositc and might be reused to write SpeedLoaders for other DBs
 
     def setDSN(self, dsn:str):
         self._dsn = dsn
 
     def _setup(self, stream:io.TextIOWrapper):
-        self._gene_id = 1
-        self._gene_names = io.StringIO()
-        self._gene_symbols = io.StringIO()
-        self._genes = io.StringIO()
+        self._gene_id = self.session.execute(Sequence('genes_id_seq'))
         self._databases = io.StringIO()
+        self._genes = io.StringIO()
         self._db2g = io.StringIO()
+        self._gene_symbols = io.StringIO()
+        self._gene_names = io.StringIO()
+        self._gene_keywords = io.StringIO()
         self._links = set()
+        self._connect()
         logging.debug("file header:\n%s", stream.readline().strip())
         return 1
 
-    def _cleanup(self, stream:io.TextIOWrapper):
+    def _connect(self):
         import psycopg2
+        self._conn = psycopg2.connect(self._dsn)
 
-        for ns, acc in self._links:
-            self._databases.write('\t'.join((ns, acc, '\\N\t\\N\t\\N')))
-            self._databases.write('\n')
-
-        conn = psycopg2.connect(self._dsn)
-        cur = conn.cursor()
-        get = lambda buffer: io.StringIO(buffer.getvalue())
+    def _dump(self):
+        cur = self._conn.cursor()
+        stream = lambda buffer: io.StringIO(buffer.getvalue())
 
         try:
-            cur.copy_from(get(self._databases), 'databases')
-            cur.copy_from(get(self._genes), 'genes')
-            cur.copy_from(get(self._gene_names), 'gene_names')
-            cur.copy_from(get(self._gene_symbols), 'gene_symbols')
-            cur.copy_from(get(self._db2g), 'db_accessions2gene_ids')
+            cur.copy_from(stream(self._databases), 'databases')
+            cur.copy_from(stream(self._genes), 'genes')
+            cur.copy_from(stream(self._gene_names), 'gene_names')
+            cur.copy_from(stream(self._gene_symbols), 'gene_symbols')
+            cur.copy_from(stream(self._gene_keywords), 'gene_keywords')
+            cur.copy_from(stream(self._db2g), 'db_accessions2gene_ids')
             cur.execute("ALTER SEQUENCE genes_id_seq RESTART WITH %s",
-                        (self._gene_id,))
-            conn.commit()
+                (self._gene_id,))
         finally:
             cur.close()
-            conn.close()
 
-        return 0 # default: no record has been added
+    def _flush(self):
+        self._dump()
+        self._databases = io.StringIO()
+        self._genes = io.StringIO()
+        self._db2g = io.StringIO()
+        self._gene_symbols = io.StringIO()
+        self._gene_names = io.StringIO()
+        self._gene_keywords = io.StringIO()
 
-    def loadRecord(self, record:Record, chromosome:str=None, location:str=None):
+    def _cleanup(self, stream:io.TextIOWrapper):
+        self._dump()
+        self._conn.commit()
+        self._conn.close()
+        return 0
+
+    def loadRecord(self, record:Record,
+                   chromosome:str=None, location:str=None):
         gid = str(self._gene_id)
-        self._genes.write('\t'.join((
+        self._genes.write('{}\t{}\t{}\t{}\n'.format(
             gid, str(record.species_id),
-            '\\N' if location is None else location,
-            '\\N' if chromosome is None else chromosome
-        )))
-        self._genes.write('\n')
-        self._databases.write('\t'.join((
-            record.namespace, record.accession, '\\N',
+            '\\N' if chromosome is None else chromosome,
+            '\\N' if location is None else location
+        ))
+        self._databases.write('{}\t{}\t{}\t{}\t{}\n'.format(
+            record.namespace, record.accession,
+            '\\N' if record.version is None else record.version,
             '\\N' if record.symbol is None else record.symbol,
             '\\N' if record.name is None else record.name
-        )))
-        self._databases.write('\n')
-        self._links.update(record.links)
-        self._db2g.write('\t'.join((
+        ))
+        self._db2g.write('{}\t{}\t{}\n'.format(
             record.namespace, record.accession, gid
-        )))
-        self._db2g.write('\n')
+        ))
 
-        for ns, acc in record.links:
-            self._db2g.write('\t'.join((ns, acc, gid)))
-            self._db2g.write('\n')
+        for ns_acc in record.links:
+            if ns_acc not in self._links:
+                self._databases.write(
+                    '{}\t{}\t\\N\t\\N\t\\N\n'.format(*ns_acc)
+                )
+                self._links.add(ns_acc)
+
+            self._db2g.write('{}\t{}\t{}\n'.format(ns_acc[0], ns_acc[1], gid))
 
         for symbol in record.symbols:
-            self._gene_symbols.write('\t'.join((gid, symbol)))
-            self._gene_symbols.write('\n')
+            self._gene_symbols.write('{}\t{}\n'.format(gid, symbol))
 
         for name in record.names:
-            self._gene_names.write('\t'.join((gid, name)))
-            self._gene_names.write('\n')
+            self._gene_names.write('{}\t{}\n'.format(gid, name))
+
+        for kwd in record.keywords:
+            self._gene_keywords.write('{}\t{}\n'.format(gid, kwd))
 
         self._gene_id += 1
 
-class Parser(AbstractGeneParser, EntrezParserMixin):
+class Parser(EntrezParserMixin, AbstractGeneParser):
     """
     A parser for NCBI Entrez Gene gene_info records.
     """
@@ -249,5 +275,3 @@ class Parser(AbstractGeneParser, EntrezParserMixin):
         logging.debug("file header:\n%s", stream.readline().strip())
         return 1
 
-    def _cleanup(self, file:io.TextIOWrapper):
-        return 0
