@@ -13,7 +13,7 @@ from libgnamed.parsers import AbstractParser
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import and_
 
-from libgnamed.orm import GeneName, GeneSymbol, Database, Gene
+from libgnamed.orm import GeneName, GeneSymbol, Database, Gene, GeneKeyword
 
 class Namespace:
     # general DBs
@@ -31,6 +31,7 @@ class Namespace:
     wormbase = 'wb' # nematode
     xenbase = 'xb' # frog
 
+
 NAMESPACES = frozenset({
     Namespace.uniprot,
     Namespace.ensemble,
@@ -44,7 +45,8 @@ NAMESPACES = frozenset({
     Namespace.ecocyc,
     Namespace.wormbase,
     Namespace.xenbase,
-})
+    })
+
 
 class Species:
     human = 9606
@@ -57,6 +59,7 @@ class Species:
     nematode = 6239
     frog = 8355
 
+
 SPECIES = frozenset({
     Species.human,
     Species.mouse,
@@ -67,7 +70,8 @@ SPECIES = frozenset({
     Species.e_coli,
     Species.nematode,
     Species.frog,
-})
+    })
+
 
 class Record:
     """
@@ -103,6 +107,7 @@ class Record:
         self.species_id = species_id
         self.symbols = set()
         self.names = set()
+        self.keywords = set()
         self.links = set()
         self.namespaces = set()
         self.accessions = set()
@@ -112,6 +117,7 @@ class Record:
 
         if name:
             self.names.add(name)
+
 
 class AbstractProteinParser(AbstractParser):
     """
@@ -141,6 +147,7 @@ class AbstractProteinParser(AbstractParser):
         """
         # TODO
         pass
+
 
 class AbstractGeneParser(AbstractParser):
     """
@@ -194,8 +201,8 @@ class AbstractGeneParser(AbstractParser):
             joinedload(Database.genes),
             joinedload('genes.symbols'),
             joinedload('genes.names'),
-        ).filter(and_(Database.namespace.in_(ns_list),
-                      Database.accession.in_(acc_list))):
+            ).filter(and_(Database.namespace.in_(ns_list),
+                          Database.accession.in_(acc_list))):
             key = (db.namespace, db.accession)
             self.db_objects[key] = db
 
@@ -248,10 +255,14 @@ class AbstractGeneParser(AbstractParser):
 
                 gene_id2db_keys[g.id].add(ns_acc)
 
-                if not g.location and location:
+                if location:
+                    # assume that the current location is the best, i.e., that
+                    # first the generic databases and then the specialized
+                    # databases are loaded
                     g.location = location
 
-                if not g.chromosome and chromosome:
+                if chromosome:
+                    # as with location
                     g.chromosome = chromosome
 
                 genes.add(g)
@@ -272,7 +283,7 @@ class AbstractGeneParser(AbstractParser):
                 "%i genes (%s) found for %s%s", len(genes),
                 ", ".join(str(g.id) for g in genes), db_object, link_str
             )
-        # iterate over all relevant Gene objects and add new data
+
         for g in genes:
             logging.debug('started updating %s', g)
             known = gene_id2db_keys[g.id]
@@ -293,5 +304,11 @@ class AbstractGeneParser(AbstractParser):
             for name in record.names.difference(n.name for n in g.names):
                 logging.debug('adding name="%s" to %s', name, g)
                 g.names.append(GeneName(g.id, name))
+
+            for kwd in record.keywords.difference(
+                k.keyword for k in g.keywords
+            ):
+                logging.debug('adding keyword="%s" to %s', kwd, g)
+                g.keywords.append(GeneKeyword(g.id, kwd))
 
             logging.debug('finished updating %s', g)
