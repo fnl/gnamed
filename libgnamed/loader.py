@@ -18,7 +18,7 @@ from libgnamed.orm import GeneName, GeneSymbol, Database, Gene, GeneKeyword
 class Namespace:
     # general DBs
     uniprot = 'prot'
-    ensemble = 'ensg'
+    ensemble = 'ens'
     entrez = 'gi'
     # organism-specific DBs
     hgnc = 'hgnc' # human

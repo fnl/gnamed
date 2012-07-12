@@ -12,16 +12,16 @@ Entity Relationship Model
 
 ::
 
-  [Name,Symbol,Keywords] <- [Protein] <> [Database] <> [Gene] -> [Name,Symbol,Keywords]
-                                  |                      |
-                                  ---------v     v--------
-                                          [Species]
+          [Protein] <-> [Database] <-> [Gene]
+            ^   |                       |  ^
+            |    ---------v     v--------  |
+  [Name,Symbol,Keywords] [Species] [Name,Symbol,Keywords]
 
 Species (species)
   *id:INT, acronym:VARCHAR(64), common_name:TEXT, scientific_name:TEXT
 
 Database (databases)
-  *namespace:VARCHAR(32), *accession:VARCHAR(64), version:VARCHAR(16),
+  *namespace:VARCHAR(8), *accession:VARCHAR(64), version:VARCHAR(16),
   symbol:VARCHAR(64), name:TEXT
 
 Protein (proteins)
@@ -114,11 +114,11 @@ Fast Loading
 Given that loading **Entrez Gene** and **UniProt** can take a very long time
 (up to a few days) if they are loaded using the default mechanism, a fast DB
 dump mechanism (using "``COPY FROM`` stream") is available for those DBs,
-circumventing the ORM and ``INSERT``s. These dumps are implemented directly
-with the underlying DB drivers. Thus, only the following DBs are currently
-supported with fast loading:
+circumventing the ORM and its dreadful ``INSERT`` statements. These dumps are
+implemented directly with the underlying DB drivers. Thus, only the following
+DBs are currently supported with fast loading:
 
-  * PostgreSQL (suffix -pg; driver: **psycopg2**)
+  - PostgreSQL (suffix -pg; driver: **psycopg2**)
 
 To use fast loading, the first repository to load into a just initialized
 database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
@@ -129,7 +129,7 @@ to fast load Entrez into a Postgres DB use: ``gnamed load entrezpg gene_info``.
 
 Note that if you decide to use SQLight as your DB, the way the ORM dumps data
 into it is nearly as quick as using ``COPY FROM`` stream. Therefore, for this
-particular DB, fast loading is not an issue.
+particular DB, fast loading is probably not an issue.
 
 License
 =======

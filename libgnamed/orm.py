@@ -132,7 +132,7 @@ class Protein(_Base):
 
 gene_map = Table(
     'db_accessions2gene_ids', _Base.metadata,
-    Column('namespace', String(32), primary_key=True),
+    Column('namespace', String(8), primary_key=True),
     Column('accession', String(64), primary_key=True),
     Column('gene_id', BigInteger, ForeignKey(
         'genes.id', onupdate='CASCADE', ondelete='CASCADE'
@@ -146,7 +146,7 @@ gene_map = Table(
 
 protein_map = Table(
     'db_accessions2protein_ids', _Base.metadata,
-    Column('namespace', String(32), primary_key=True),
+    Column('namespace', String(8), primary_key=True),
     Column('accession', String(64), primary_key=True),
     Column('protein_id', BigInteger, ForeignKey(
         'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
@@ -162,7 +162,7 @@ class Database(_Base):
 
     __tablename__ = 'databases'
 
-    namespace = Column(String(32), primary_key=True)
+    namespace = Column(String(8), primary_key=True)
     accession = Column(String(64), primary_key=True)
     version = Column(String(16))
     symbol = Column(String(64))
