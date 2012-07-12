@@ -12,10 +12,10 @@ Entity Relationship Model
 
 ::
 
-  [Name,Symbol] <- [Protein] <> [Database] <> [Gene] -> [Name,Symbol]
-                         |                      |
-                         ---------v     v--------
-                                 [Species]
+  [Name,Symbol,Keywords] <- [Protein] <> [Database] <> [Gene] -> [Name,Symbol,Keywords]
+                                  |                      |
+                                  ---------v     v--------
+                                          [Species]
 
 Species (species)
   *id:INT, acronym:VARCHAR(64), common_name:TEXT, scientific_name:TEXT
@@ -46,6 +46,12 @@ GeneName (gene_names)
 
 ProteinName (protein_names)
   *protein_id:FK_Protein, *name:TEXT
+
+GeneKeyword (gene_keywords)
+  *gene_id:FK_Gene, *keyword:TEXT
+
+ProteinKeyword (protein_keyword)
+  *protein_id:FK_Protein, *keyword:TEXT
 
 *(Compound) Primary Key
 
@@ -94,6 +100,36 @@ Sometimes, repositories are downloaded as text files; e.g.::
 To see a list of available repositories, use::
 
     gnamed --list
+
+**Important:** The order in which repositories are loaded *does* matter,
+particularly for setting Gene and Protein metadata (chromosome, location,
+length, mass). The last repository loaded will always overwrite this metadata.
+So it is advisable to first load the generic repositories (Entrez, UniProt)
+and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
+metadata.
+
+Fast Loading
+============
+
+Given that loading **Entrez Gene** and **UniProt** can take a very long time
+(up to a few days) if they are loaded using the default mechanism, a fast DB
+dump mechanism (using "``COPY FROM`` stream") is available for those DBs,
+circumventing the ORM and ``INSERT``s. These dumps are implemented directly
+with the underlying DB drivers. Thus, only the following DBs are currently
+supported with fast loading:
+
+  * PostgreSQL (suffix -pg; driver: **psycopg2**)
+
+To use fast loading, the first repository to load into a just initialized
+database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
+two UniProt files may be fast-loaded and finally all other repositories may be
+added (regularly) in any order. To activate the fast loader instead of the
+regular Parser/ORM mechanism, append the suffix to the repository key, e.g.,
+to fast load Entrez into a Postgres DB use: ``gnamed load entrezpg gene_info``.
+
+Note that if you decide to use SQLight as your DB, the way the ORM dumps data
+into it is nearly as quick as using ``COPY FROM`` stream. Therefore, for this
+particular DB, fast loading is not an issue.
 
 License
 =======
