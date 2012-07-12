@@ -63,9 +63,8 @@ class AbstractParser:
 
                     num_records += self._parse(line)
 
-                    if num_records % 100 == 0:
-                        self.db_objects = {}
-                        self.session.flush()
+                    if num_records % 10000 == 0:
+                        self._flush()
 
                     line = stream.readline().strip()
                     line_count += 1
@@ -121,7 +120,7 @@ class AbstractParser:
         Setup the virgin stream and return the line count into the stream after
         setup.
         """
-        raise NotImplementedError('abstract')
+        return 0
 
     def _parse(self, line:str):
         """
@@ -129,12 +128,19 @@ class AbstractParser:
         """
         raise NotImplementedError('abstract')
 
+    def _flush(self):
+        """
+        Write currently held data into the DB to free some RAM.
+        """
+        self.db_objects = {}
+        self.session.flush()
+
     def _cleanup(self, stream:io.TextIOWrapper):
         """
         Clean up the stream and dangling records and return the number of
         processed records.
         """
-        raise NotImplementedError('abstract')
+        return 0
 
 #class Parser(AbstractParser):
 #
@@ -144,6 +150,9 @@ class AbstractParser:
 #    def _parse(self, line:str):
 #        #self.loadRecord(record, ...)
 #        return 0 # default: no record has been added
+#
+#    def _flush(self):
+#        super(Parser, self)._flush()
 #
 #    def _cleanup(self, stream:io.TextIOWrapper):
 #        return 0 # default: no record has been added
