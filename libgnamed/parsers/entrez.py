@@ -69,7 +69,36 @@ TRANSLATE = {
     'ECOCYC': Namespace.ecocyc,
     'WormBase': Namespace.wormbase,
     'Xenbase': Namespace.xenbase,
-}
+
+    'AnimalQTLdb': None,
+    'APHIDBASE': None,
+    'ApiDB_CryptoDB': None,
+    'BEEBASE': None,
+    'BEETLEBASE': None,
+    'BGD': None,
+    'CGNC': None,
+    'dictyBase': None,
+    'EcoGene': None,
+    'HPRD': None,
+    'HPRDmbl': None,
+    'IMGT/GENE-DB': None,
+    'InterPro': None,
+    'MaizeGDB': None,
+    'MIM': None,
+    'MIMC': None,
+    'miRBase': None,
+    'NASONIABASE': None,
+    'Pathema': None,
+    'PBR': None,
+    'PFAM': None,
+    'PseudoCap': None,
+    'VBRC': None,
+    'VectorBase': None,
+    'Vega': None,
+    'Vegambl': None,
+    'ZFIN': None,
+
+    }
 
 def isGeneSymbol(sym:str) -> bool:
     """
@@ -123,8 +152,11 @@ class EntrezParserMixin:
             for xref in row.dbxrefs.split('|'):
                 db, acc = xref.split(':')
 
-                if db in TRANSLATE:
-                    record.links.add((TRANSLATE[db], acc))
+                try:
+                    if TRANSLATE[db]:
+                        record.links.add((TRANSLATE[db], acc))
+                except KeyError:
+                    logging.warn('unknown dbXref to "%s"', db)
 
         # parsed symbol strings
         if row.nomenclature_symbol:
