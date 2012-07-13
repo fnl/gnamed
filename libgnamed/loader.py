@@ -9,69 +9,12 @@ import logging
 import sys
 
 from collections import defaultdict
-from libgnamed.parsers import AbstractParser
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import and_
 
-from libgnamed.orm import GeneName, GeneSymbol, Database, Gene, GeneKeyword
-
-class Namespace:
-    # general DBs
-    uniprot = 'prot'
-    ensemble = 'ens'
-    entrez = 'gi'
-    # organism-specific DBs
-    hgnc = 'hgnc' # human
-    mgd = 'mgi' # mouse
-    rgd = 'rgd' # rat
-    flybase = 'fly' # fly
-    sgd = 'sgd' # yeast
-    tair = 'tair' # cress
-    ecocyc = 'eco' # e.coli
-    wormbase = 'wb' # nematode
-    xenbase = 'xb' # frog
-
-
-NAMESPACES = frozenset({
-    Namespace.uniprot,
-    Namespace.ensemble,
-    Namespace.entrez,
-    Namespace.hgnc,
-    Namespace.mgd,
-    Namespace.rgd,
-    Namespace.flybase,
-    Namespace.sgd,
-    Namespace.tair,
-    Namespace.ecocyc,
-    Namespace.wormbase,
-    Namespace.xenbase,
-    })
-
-
-class Species:
-    human = 9606
-    mouse = 10090
-    rat = 10116
-    fly = 7227
-    yeast = 4932
-    cress = 3702
-    e_coli = 562
-    nematode = 6239
-    frog = 8355
-
-
-SPECIES = frozenset({
-    Species.human,
-    Species.mouse,
-    Species.rat,
-    Species.fly,
-    Species.yeast,
-    Species.cress,
-    Species.e_coli,
-    Species.nematode,
-    Species.frog,
-    })
-
+from libgnamed.constants import Namespace
+from libgnamed.orm import Database, Gene, GeneName, GeneSymbol, GeneKeyword
+from libgnamed.parsers import AbstractParser
 
 class Record:
     """

@@ -8,6 +8,7 @@
 import logging
 import sys
 import io
+
 from libgnamed.orm import Session
 from libgnamed.progress_bar import initBarForInfile
 

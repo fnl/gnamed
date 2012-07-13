@@ -2,14 +2,14 @@
 import libgnamed
 import logging
 import sys
-from libgnamed.parsers.entrez import SpeedLoader
 import os
 
 from argparse import ArgumentParser
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import OperationalError
 
-from libgnamed.fetcher import REPOSITORIES, retrieve
+from libgnamed.constants import REPOSITORIES
+from libgnamed.fetcher import retrieve
 from libgnamed.orm import initdb
 from libgnamed.parsers import taxa
 
@@ -177,8 +177,14 @@ elif args.command == 'load' and args.repository:
     except OperationalError as oe:
         parser.error(str(oe.orig).strip())
 
-    if args.repository == 'entrezpg':
-        repo_parser = SpeedLoader(*args.files, encoding=args.encoding)
+    if args.repository in ('entrezpg', 'uniprotpg'):
+        repo_parser_module = __import__(
+            'libgnamed.parsers.' + args.repository[:-2], globals(),
+            fromlist=['SpeedLoader']
+        )
+        repo_parser = repo_parser_module.SpeedLoader(
+            *args.files, encoding=args.encoding
+        )
         userpass = "user={} password={} ".format(
             args.username, args.password
         ) if (args.username and args.password) else ""

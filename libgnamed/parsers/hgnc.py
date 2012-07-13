@@ -11,7 +11,8 @@ import logging
 from collections import namedtuple
 from shlex import shlex
 
-from libgnamed.loader import Namespace, Record, Species, AbstractGeneParser
+from libgnamed.constants import Species, Namespace
+from libgnamed.loader import Record, AbstractGeneParser
 
 Line = namedtuple('Line', [
     'id', 'symbol', 'name',

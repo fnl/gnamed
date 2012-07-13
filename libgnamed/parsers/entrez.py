@@ -6,11 +6,14 @@
 .. License: GNU Affero GPL v3 (http://www.gnu.org/licenses/agpl.html)
 """
 import logging
-from collections import namedtuple
 import io
-from libgnamed.loader import Namespace, Record, AbstractGeneParser
-from libgnamed.parsers import AbstractParser
+
+from collections import namedtuple
 from sqlalchemy.schema import Sequence
+
+from libgnamed.constants import Namespace
+from libgnamed.loader import Record, AbstractGeneParser
+from libgnamed.parsers import AbstractParser
 
 Line = namedtuple('Line', [
     'species_id', 'id',
