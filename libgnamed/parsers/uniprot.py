@@ -67,7 +67,6 @@ def translate_WormBase(items:list):
 def translate_Xenbase(items:list):
     yield (Namespace.xenbase, items[0])
 
-
 TRANSLATE = {
     'EMBL': None,
     '2DBase-Ecoli': None,
@@ -209,7 +208,7 @@ class Parser(AbstractProteinParser):
     A parser for UniProtKB text files.
     """
 
-    def _setup(self, stream:io.TextIOWrapper):
+    def _setup(self, stream:io.TextIOWrapper) -> int:
         logging.debug("file header:\n%s", stream.readline().strip())
         self._mass = -1
         self._length = -1
@@ -217,42 +216,43 @@ class Parser(AbstractProteinParser):
         self.record = None
         self._name_state = None
         self._skip_sequence = False
+
+        def skip(line):
+            return 0
+
         self._dispatcher = {"ID": self._parseID, "AC": self._parseAC,
                             "DT": self._parseDT, "DE": self._parseDE,
                             "GN": self._parseGN, "OX": self._parseOX,
                             "DR": self._parseDR, "KW": self._parseKW,
-                            "SQ": self._parseSQ, "//": self._parseEND}
+                            "SQ": self._parseSQ, "//": self._parseEND,
+                            "OS": skip, "OG": skip, "OC": skip, "OH": skip,
+                            "RN": skip, "RP": skip, "RC": skip, "RX": skip,
+                            "RG": skip, "RA": skip, "RT": skip, "RL": skip,
+                            "CC": skip, "PE": skip, "FT": skip,
+                            }
 
         return 1
 
-    def _cleanup(self, file:io.TextIOWrapper):
+    def _cleanup(self, file:io.TextIOWrapper) -> int:
         return 0
 
-    def _parse(self, line:str):
+    def _parse(self, line:str) -> int:
         if line and not self._skip_sequence:
-            line_type = line[0:2]
-
-            if line_type in self._dispatcher:
-                self._dispatcher[line_type](line[5:].strip())
-
-                if line_type == 'SQ':
-                    self._skip_sequence = True
-
-            return 0
+            return self._dispatcher[line[0:2]](line)
         elif self._skip_sequence and line.startswith('//'):
-            self._skip_sequence = False
-            return 1
+            return self._parseEND(line)
         else:
             return 0
 
     ID_RE = re.compile(
-        '^\w+\s+(?P<status>Reviewed|Unreviewed);\s+(?P<length>\d+)\s+AA\.$'
+        'ID\s+\w+\s+(?P<status>Reviewed|Unreviewed);\s+(?P<length>\d+)\s+AA\.'
     )
 
     def _parseID(self, line:str):
-        self._length = int(Parser.ID_RE.search(line).group('length'))
+        self._length = int(Parser.ID_RE.match(line).group('length'))
+        return 0
 
-    AC_RE = re.compile('\s*(?P<accession>[A-Z][0-9][A-Z0-9]{3}[0-9])\s*;')
+    AC_RE = re.compile('\s+(?P<accession>[A-Z][0-9][A-Z0-9]{3}[0-9]);')
 
     def _parseAC(self, line:str):
         accessions = Parser.AC_RE.findall(line)
@@ -269,29 +269,32 @@ class Parser(AbstractProteinParser):
         self.record.links.update(
             (Namespace.uniprot, acc) for acc in accessions[start:]
         )
+        return 0
 
     DT_RE = re.compile(
-        '^\s*\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.\s*$'
+        'DT\s+\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.'
     )
 
     def _parseDT(self, line:str):
-        mo = Parser.DT_RE.search(line)
+        mo = Parser.DT_RE.match(line)
 
         if mo:
             self.record.version = mo.group('version')
 
+        return 0
+
     DE_RE = re.compile(
-        '^(?:(?P<category>(?:Rec|Alt|Sub)Name|Flags|Contains|Includes):)?(?:\s*(?P<subcategory>[^=]+)(?:=(?P<name>.+))?)?$'
+        'DE\s+(?:(?P<category>(?:Rec|Alt|Sub)Name|Flags|Contains|Includes):)?(?:\s*(?P<subcategory>[^=]+)(?:=(?P<name>.+))?)?'
     )
 
     def _parseDE(self, line:str):
-        mo = Parser.DE_RE.search(line)
+        mo = Parser.DE_RE.match(line)
         cat = mo.group('category')
         subcat = mo.group('subcategory')
         name = mo.group('name')
 
         if cat in ('Flags', 'Contains', 'Includes'):
-            return
+            return 0
         elif cat:
             self._name_cat = cat
 
@@ -318,7 +321,9 @@ class Parser(AbstractProteinParser):
                 'unknown DE subcategory field "{}"'.format(subcat)
             )
 
-    GN_RE = re.compile('\s*(?P<key>\w+)\s*=\s*(?P<value>[^;]+);')
+        return 0
+
+    GN_RE = re.compile('\s+(?P<key>\w+)\s*=\s*(?P<value>[^;]+);')
 
     def _parseGN(self, line:str):
         if line == 'and':
@@ -339,46 +344,57 @@ class Parser(AbstractProteinParser):
                     'unknown GN category field "{}"'.format(key)
                 )
 
-    OX_RE = re.compile('^\s*NCBI_TaxID\s*=\s*(?P<species>\d+)\s*;\s*$')
+        return 0
+
+    OX_RE = re.compile('OX\s+NCBI_TaxID\s*=\s*(?P<species>\d+);')
 
     def _parseOX(self, line:str):
-        species = Parser.OX_RE.search(line).group('species')
+        species = Parser.OX_RE.match(line).group('species')
 
         if species:
             self.record.species_id = int(species)
 
+        return 0
+
     DR_RE = re.compile(
-        '^\s*(?P<namespace>[\w/\-]+)\s*;\s+(?P<accessions>.*)$'
+        'DR\s+(?P<namespace>[\w/\-]+)\s*;\s+(?P<accessions>.*)'
     )
 
     def _parseDR(self, line:str):
-        mo = Parser.DR_RE.search(line)
+        mo = Parser.DR_RE.match(line)
         namespace = mo.group('namespace')
 
-        if TRANSLATE[namespace]:
+        if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
             self.record.links.update(
                 TRANSLATE[namespace]([
                 i.strip() for i in mo.group('accessions')[:-1].split(';')
                 ])
             )
 
-    KW_RE = re.compile('\s*(?P<keyword>[^;]+);')
+        return 0
+
+    KW_RE = re.compile('\s+(?P<keyword>[^;]+);')
 
     def _parseKW(self, line:str):
         self.record.keywords.update(Parser.KW_RE.findall(line))
+        return 0
 
     SQ_RE = re.compile(
-        '^\s*SEQUENCE\s+(?P<length>\d+)\s+AA;\s+(?P<mass>\d+)\s+MW;\s+(?P<crc64>\w+)\s+CRC64;\s*$'
+        'SQ\s+SEQUENCE\s+(?P<length>\d+)\s+AA;\s+(?P<mass>\d+)\s+MW;\s+(?P<crc64>\w+)\s+CRC64;'
     )
 
     def _parseSQ(self, line:str):
-        self._mass = int(Parser.SQ_RE.search(line).group('mass'))
+        self._mass = int(Parser.SQ_RE.match(line).group('mass'))
+        self._skip_sequence = True
+        return 0
 
     #noinspection PyUnusedLocal
     def _parseEND(self, line:str):
         #noinspection PyTypeChecker
         self.loadRecord(self.record, mass=self._mass, length=self._length)
+        self._skip_sequence = False
         self._mass = None
         self._length = None
         self._record = None
         self._name_cat = None
+        return 1
