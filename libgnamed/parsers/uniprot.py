@@ -281,7 +281,7 @@ class Parser(AbstractProteinParser):
             self.record.version = mo.group('version')
 
     DE_RE = re.compile(
-        '^(?:(?P<category>(?:Rec|Alt|Sub)Name|Flags|Contains|Includes):)?(?:\s*(?P<subcategory>[^=]+)(?:=(?P<name>[^;]+))?;)?$'
+        '^(?:(?P<category>(?:Rec|Alt|Sub)Name|Flags|Contains|Includes):)?(?:\s*(?P<subcategory>[^=]+)(?:=(?P<name>.+))?)?$'
     )
 
     def _parseDE(self, line:str):
@@ -299,18 +299,18 @@ class Parser(AbstractProteinParser):
 
         if self._name_cat == 'RecName':
             if subcat == 'Full':
-                self.record.name = name
+                self.record.name = name[:-1]
             elif subcat == 'Short' and not self.record.symbol:
-                self.record.symbol = name
+                self.record.symbol = name[:-1]
             elif subcat == 'EC' and not self.record.symbol:
-                self.record.symbol = name
+                self.record.symbol = name[:-1]
 
         if subcat == 'Short':
-            self.record.symbols.add(name)
+            self.record.symbols.add(name[:-1])
         elif subcat == 'EC':
-            self.record.symbols.add(name)
+            self.record.symbols.add(name[:-1])
         elif subcat == 'Full':
-            self.record.names.add(name)
+            self.record.names.add(name[:-1])
         elif subcat in ('Allergen', 'Biotech', 'CD_antigen', 'INN'):
             pass
         else:
