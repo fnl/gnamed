@@ -61,6 +61,12 @@ class Record:
         if name:
             self.names.add(name)
 
+    def __str__(self):
+        return "{}:{}@{} (v={}, s={}, n={})".format(
+            self.namespace, self.accession, self.species_id, self.version,
+            self.symbol, self.name
+        )
+
 
 class AbstractProteinParser(AbstractParser):
     """
