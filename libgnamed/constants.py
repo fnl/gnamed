@@ -10,7 +10,7 @@ REPOSITORIES = {
     'taxa': {
         'url': 'ftp://ftp.ncbi.nih.gov/pub/taxonomy/',
         'resources': [('taxdump.tar.gz', 'taxdump.tar.gz', None)],
-        'description': "NCBI Taxonomy database dump",
+        'description': "NCBI Taxonomy database dump (nodes.dmp, names.dmp)",
         },
     'entrez': {
         'url': 'ftp://ftp.ncbi.nih.gov/gene/DATA/',
@@ -54,7 +54,22 @@ class Namespace:
 
 
 NAMESPACES = frozenset({
+    Namespace.ensemble,
+    Namespace.entrez,
     Namespace.uniprot,
+    Namespace.hgnc,
+    Namespace.mgd,
+    Namespace.rgd,
+    Namespace.flybase,
+    Namespace.sgd,
+    Namespace.tair,
+    Namespace.ecocyc,
+    Namespace.wormbase,
+    Namespace.xenbase,
+    })
+
+
+GENE_SPACES = frozenset({
     Namespace.ensemble,
     Namespace.entrez,
     Namespace.hgnc,
@@ -66,6 +81,10 @@ NAMESPACES = frozenset({
     Namespace.ecocyc,
     Namespace.wormbase,
     Namespace.xenbase,
+    })
+
+PROTEIN_SPACES = frozenset({
+    Namespace.uniprot,
     })
 
 

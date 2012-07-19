@@ -24,7 +24,7 @@ if _cmd == 'fetch':
     _usage = "%(prog)s [options] fetch KEY [KEY...]"
     _description = "download a gene/protein name repository"
 elif _cmd == 'init':
-    _usage = "%(prog)s [options] init FILE"
+    _usage = "%(prog)s [options] init FILE FILE"
     _description = "initialize the gene/protein name DB"
 elif _cmd == 'load':
     _usage = "%(prog)s [options] load KEY FILE [FILE...]"
@@ -99,8 +99,12 @@ if _cmd == 'fetch':
     )
 elif _cmd == 'init':
     parser.add_argument(
-        'file', metavar='FILE', nargs='?',
-        help="the names.dmp NCBI taxonomy file to bootstrap the DB"
+        'nodes', metavar='FILE', nargs='?',
+        help="the nodes.dmp NCBI taxonomy file"
+    )
+    parser.add_argument(
+        'names', metavar='FILE', nargs='?',
+        help="the names.dmp NCBI taxonomy file"
     )
 elif _cmd == 'load':
     parser.add_argument(
@@ -165,7 +169,7 @@ elif args.command == 'load' and args.repository:
     if not args.files:
         parser.error('no input files')
 
-    if args.repository not in REPOSITORIES and args.repository != 'entrezpg':
+    if args.repository not in REPOSITORIES and args.repository[-2:] != 'pg':
         parser.error('repository key "{}" unknown'.format(args.repository))
 
     db_url = URL(args.driver, username=args.username, password=args.password,
@@ -201,8 +205,9 @@ elif args.command == 'load' and args.repository:
 
     repo_parser.parse()
 elif args.command == 'init':
-    if not os.path.exists(args.file):
-        parser.error('file "{}" does not exist'.format(args.file))
+    for file in (args.nodes, args.names):
+        if not os.path.exists(file):
+            parser.error('file "{}" does not exist'.format(file))
 
     db_url = URL(args.driver, username=args.username, password=args.password,
                  host=args.host, port=args.port, database=args.database)
@@ -213,7 +218,7 @@ elif args.command == 'init':
     except OperationalError as oe:
         parser.error(str(oe.orig).strip())
 
-    taxa_parser = taxa.Parser(args.file, encoding=args.encoding)
+    taxa_parser = taxa.Parser(args.nodes, args.names, encoding=args.encoding)
     taxa_parser.parse()
 else:
     parser.error('wrong number of arguments')
