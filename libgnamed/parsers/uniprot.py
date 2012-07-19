@@ -10,65 +10,55 @@ import io
 import logging
 
 from libgnamed.constants import Namespace
-from libgnamed.loader import Record, AbstractProteinParser
-from libgnamed.parsers import AbstractParser
-
-class SpeedLoader(AbstractParser):
-    # TODO
-    pass
-
+from libgnamed.loader import ProteinRecord, AbstractLoader, DBRef
+from sqlalchemy.schema import Sequence
 
 def translate_BioCyc(items:list):
     ns, acc = items[0].split(':')
 
     if ns == 'EcoCyc':
-        yield (Namespace.ecocyc, acc)
-
-
-def translate_Ensemble(items:list):
-    for acc in items:
-        yield (Namespace.ensemble, acc)
+        yield DBRef(Namespace.ecocyc, acc)
 
 
 def translate_FlyBase(items:list):
-    yield (Namespace.flybase, items[0])
+    yield DBRef(Namespace.flybase, items[0])
 
 
 def translate_GeneID(items:list):
-    yield (Namespace.entrez, items[0])
+    yield DBRef(Namespace.entrez, items[0])
 
 
 def translate_HGNC(items:list):
     assert items[0].startswith('HGNC:'), items
-    yield (Namespace.hgnc, items[0].split(':')[1])
+    yield DBRef(Namespace.hgnc, items[0].split(':')[1])
 
 
 def translate_MGI(items:list):
     assert items[0].startswith('MGI:'), items
-    yield (Namespace.hgnc, items[0].split(':')[1])
+    yield DBRef(Namespace.hgnc, items[0].split(':')[1])
 
 
 def translate_RGD(items:list):
-    yield (Namespace.rgd, items[0])
+    yield DBRef(Namespace.rgd, items[0])
 
 
 def translate_SGD(items:list):
-    yield (Namespace.sgd, items[0])
+    yield DBRef(Namespace.sgd, items[0])
 
 
 def translate_TAIR(items:list):
-    yield (Namespace.tair, items[0])
+    yield DBRef(Namespace.tair, items[0])
 
 
 def translate_WormBase(items:list):
-    yield (Namespace.wormbase, items[0])
+    yield DBRef(Namespace.wormbase, items[0])
 
 
 def translate_Xenbase(items:list):
-    yield (Namespace.xenbase, items[0])
+    yield DBRef(Namespace.xenbase, items[0])
+
 
 TRANSLATE = {
-    'EMBL': None,
     '2DBase-Ecoli': None,
     'Aarhus/Ghent-2DPAGE': None,
     'Allergome': None,
@@ -99,8 +89,9 @@ TRANSLATE = {
     'ECO2DBASE': None,
     'EcoGene': None,
     'eggNOG': None,
-    'Ensembl': translate_Ensemble,
-    'EnsemblBacteria': translate_Ensemble,
+    'EMBL': None,
+    'Ensembl': None,
+    'EnsemblBacteria': None,
     'EnsemblFungi': None,
     'EnsemblMetazoa': None,
     'EnsemblPlants': None,
@@ -203,17 +194,20 @@ TRANSLATE = {
     }
 
 
-class Parser(AbstractProteinParser):
+class Parser(AbstractLoader):
     """
     A parser for UniProtKB text files.
+
+    Implements the `AbstractParser._parse` method.
     """
 
     def _setup(self, stream:io.TextIOWrapper) -> int:
-        logging.debug("file header:\n%s", stream.readline().strip())
-        self._mass = -1
-        self._length = -1
+        lines = super(Parser, self)._setup(stream)
+        self._length = None
+        self._id = None
         self._name_cat = None
         self.record = None
+        self.db_key = None
         self._name_state = None
         self._skip_sequence = False
 
@@ -221,7 +215,8 @@ class Parser(AbstractProteinParser):
             return 0
 
         self._dispatcher = {"ID": self._parseID, "AC": self._parseAC,
-                            "DT": self._parseDT, "DE": self._parseDE,
+                            #"DT": self._parseDT,
+                            "DE": self._parseDE,
                             "GN": self._parseGN, "OX": self._parseOX,
                             "DR": self._parseDR, "KW": self._parseKW,
                             "SQ": self._parseSQ, "//": self._parseEND,
@@ -229,12 +224,13 @@ class Parser(AbstractProteinParser):
                             "RN": skip, "RP": skip, "RC": skip, "RX": skip,
                             "RG": skip, "RA": skip, "RT": skip, "RL": skip,
                             "CC": skip, "PE": skip, "FT": skip,
+                            "DT": skip,
                             }
 
-        return 1
+        return lines
 
-    def _cleanup(self, file:io.TextIOWrapper) -> int:
-        return 0
+    def _cleanup(self, stream:io.TextIOWrapper) -> int:
+        return super(Parser, self)._cleanup(stream)
 
     def _parse(self, line:str) -> int:
         if line and not self._skip_sequence:
@@ -245,11 +241,13 @@ class Parser(AbstractProteinParser):
             return 0
 
     ID_RE = re.compile(
-        'ID\s+\w+\s+(?P<status>Reviewed|Unreviewed);\s+(?P<length>\d+)\s+AA\.'
+        'ID\s+(?P<id>\w+)\s+(?P<status>Reviewed|Unreviewed);\s+(?P<length>\d+)\s+AA\.'
     )
 
     def _parseID(self, line:str):
-        self._length = int(Parser.ID_RE.match(line).group('length'))
+        mo = Parser.ID_RE.match(line)
+        self._id = mo.group('id')
+        self._length = int(mo.group('length'))
         return 0
 
     AC_RE = re.compile('\s+(?P<accession>[A-Z][0-9][A-Z0-9]{3}[0-9]);')
@@ -257,31 +255,35 @@ class Parser(AbstractProteinParser):
     def _parseAC(self, line:str):
         accessions = Parser.AC_RE.findall(line)
 
+        # only once, even if there are multiple AC lines:
         if self.record is None:
             # ensure a species ID has to be set later:
-            self.record = Record(Namespace.uniprot, accessions[0], -1)
-            # ensure a version has to be set later:
-            self.record.version = lambda: 'undefined'
-            start = 1
-        else:
-            start = 0
+            #noinspection PyTypeChecker
+            self.record = ProteinRecord(-1, length=self._length)
+            self.db_key = DBRef(Namespace.uniprot, accessions[0])
 
-        self.record.links.update(
-            (Namespace.uniprot, acc) for acc in accessions[start:]
-        )
-        return 0
+            if self._id:
+                #noinspection PyTypeChecker
+                self.record.addString("identifier", self._id)
 
-    DT_RE = re.compile(
-        'DT\s+\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.'
-    )
+        self.record.addDBRef(DBRef(Namespace.uniprot, accessions.pop(0)))
 
-    def _parseDT(self, line:str):
-        mo = Parser.DT_RE.match(line)
-
-        if mo:
-            self.record.version = mo.group('version')
+        for acc in accessions:
+            self.record.addString("accession", acc)
 
         return 0
+
+#    DT_RE = re.compile(
+#        'DT\s+\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.'
+#    )
+#
+#    def _parseDT(self, line:str):
+#        mo = Parser.DT_RE.match(line)
+#
+#        if mo:
+#            self.record.version = mo.group('version')
+#
+#        return 0
 
     DE_RE = re.compile(
         'DE\s+(?:(?P<category>(?:Rec|Alt|Sub)Name|Flags|Contains|Includes):)?(?:\s*(?P<subcategory>[^=]+)(?:=(?P<name>.+))?)?'
@@ -299,21 +301,46 @@ class Parser(AbstractProteinParser):
             self._name_cat = cat
 
         assert subcat is not None and name is not None, line
+        assert name[-1] == ';', name
+        name = name[:-1]
+
+        if subcat == "Short" and len(name) > 16 and ' ' in name:
+            subcat = "Full"
+
+        if subcat == "Full":
+            name = "{}{}".format(name[0].lower(), name[1:])
+
+            while name.startswith("uncharacterized protein ") or \
+               name.startswith("putative ") or\
+               name.startswith("probable "):
+                if name.startswith("uncharacterized protein "):
+                    name = name[24:]
+                else:
+                    name = name[9:]
+
+                if ' ' not in name and len(name) < 16:
+                    subcat = "Short"
+
+            comma = name.rfind(', ')
+
+            while comma != -1:
+                name = "{} {}".format(name[comma+2:], name[:comma])
+                comma = name.rfind(', ')
 
         if self._name_cat == 'RecName':
             if subcat == 'Full':
-                self.record.name = name[:-1]
+                self.record.name = name
             elif subcat == 'Short' and not self.record.symbol:
-                self.record.symbol = name[:-1]
+                self.record.symbol = name
             elif subcat == 'EC' and not self.record.symbol:
-                self.record.symbol = name[:-1]
+                self.record.symbol = "EC{}".format(name)
 
-        if subcat == 'Short':
-            self.record.symbols.add(name[:-1])
+        if subcat == 'Full':
+            self.record.addName(name)
+        elif subcat == 'Short':
+            self.record.addSymbol(name)
         elif subcat == 'EC':
-            self.record.symbols.add(name[:-1])
-        elif subcat == 'Full':
-            self.record.names.add(name[:-1])
+            self.record.addKeyword("EC{}".format(name))
         elif subcat in ('Allergen', 'Biotech', 'CD_antigen', 'INN'):
             pass
         else:
@@ -329,16 +356,23 @@ class Parser(AbstractProteinParser):
         if line == 'and':
             return
 
-        if not hasattr(self.record, 'gene_symbols'):
-            self.record.gene_symbols = set()
-
         for key, value in Parser.GN_RE.findall(line):
             if key == 'Name':
-                self.record.gene_symbols.add(value)
-            elif key in ('Synonyms', 'OrderedLocusNames', 'ORFNames'):
-                self.record.gene_symbols.update(
-                    s.strip() for s in key.split(',')
-                )
+                if len(value) < 16 or ' ' not in value:
+                    self.record.addSymbol(value)
+                else:
+                    self.record.addName(value)
+            elif key == 'Synonyms':
+                for s in value.split(','):
+                    s = s.strip()
+
+                    if len(s) < 16 or ' ' not in s:
+                        self.record.addSymbol(s)
+                    else:
+                        self.record.addName(s)
+            elif key in ('OrderedLocusNames', 'ORFNames'):
+                for s in value.split(','):
+                    self.record.addKeyword(s.strip())
             else:
                 raise RuntimeError(
                     'unknown GN category field "{}"'.format(key)
@@ -365,18 +399,22 @@ class Parser(AbstractProteinParser):
         namespace = mo.group('namespace')
 
         if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
-            self.record.links.update(
-                TRANSLATE[namespace]([
+            assert mo.group('accessions')[-1] == '.', mo.group('accessions')
+
+            for db_ref in TRANSLATE[namespace]([
                 i.strip() for i in mo.group('accessions')[:-1].split(';')
-                ])
-            )
+            ]):
+                self.record.addDBRef(db_ref)
 
         return 0
 
-    KW_RE = re.compile('\s+(?P<keyword>[^;]+);')
+    KW_RE = re.compile('\s+(?P<keyword>[^;]+)(?:;|\.$)')
 
     def _parseKW(self, line:str):
-        self.record.keywords.update(Parser.KW_RE.findall(line))
+        map(self.record.addKeyword, [
+            kw for kw in Parser.KW_RE.findall(line)
+            if kw != 'Complete proteome'
+        ])
         return 0
 
     SQ_RE = re.compile(
@@ -384,17 +422,137 @@ class Parser(AbstractProteinParser):
     )
 
     def _parseSQ(self, line:str):
-        self._mass = int(Parser.SQ_RE.match(line).group('mass'))
+        self.record.mass = int(Parser.SQ_RE.match(line).group('mass'))
         self._skip_sequence = True
         return 0
 
     #noinspection PyUnusedLocal
     def _parseEND(self, line:str):
         #noinspection PyTypeChecker
-        self.loadRecord(self.record, mass=self._mass, length=self._length)
+        self._loadRecord(self.db_key, self.record)
+        self.record = None
+        self.db_key = None
         self._skip_sequence = False
-        self._mass = None
         self._length = None
-        self._record = None
+        self._id = None
         self._name_cat = None
         return 1
+
+class SpeedLoader(Parser):
+    """
+    Overrides the database loading methods to directly dump all data "as is".
+    """
+
+    def setDSN(self, dsn:str):
+        """
+        Set the DSN string for connecting psycopg2 to a Postgres DB.
+
+        :param dsn: the DSN string
+        """
+        self._dsn = dsn
+
+    def _setup(self, stream:io.TextIOWrapper) -> int:
+        logging.debug('speedloader setup')
+        lines = super(SpeedLoader, self)._setup(stream)
+        self._protein_id = self.session.execute(Sequence('proteins_id_seq'))
+        self._initBuffers()
+        self._links = set()
+        self._connect()
+        self._db_key2gid_map = dict()
+        self._loadExistingLinks()
+        return lines
+
+    def _initBuffers(self):
+        self._proteins = io.StringIO()
+        self._protein_refs = io.StringIO()
+        self._protein_strings = io.StringIO()
+        self._mappings = io.StringIO()
+
+    def _loadExistingLinks(self):
+        cursor = self._conn.cursor('refs')
+        cursor.execute("SELECT namespace, accession, id FROM gene_refs;")
+
+        for ns, acc, gid in cursor:
+            db_key = DBRef(ns, acc)
+            self._db_key2gid_map[db_key] = gid
+
+        cursor.close()
+        logging.debug('loaded %s links', len(self._db_key2gid_map))
+
+    def _connect(self):
+        import psycopg2
+        self._conn = psycopg2.connect(self._dsn)
+
+    def _flush(self):
+        """
+        Overrides the default `AbstractLoader._loadRecord` method.
+        """
+        cur = self._conn.cursor()
+        stream = lambda buffer: io.StringIO(buffer.getvalue())
+
+        try:
+            cur.copy_from(stream(self._proteins), 'proteins')
+            cur.copy_from(stream(self._protein_refs), 'protein_refs')
+            cur.copy_from(stream(self._protein_strings), 'protein_strings')
+            cur.copy_from(stream(self._mappings), 'genes2proteins')
+            cur.execute("ALTER SEQUENCE proteins_id_seq RESTART WITH %s",
+                (self._protein_id,))
+        finally:
+            cur.close()
+
+        self._initBuffers()
+
+    def _cleanup(self, stream:io.TextIOWrapper) -> int:
+        self._flush()
+        self._conn.commit()
+        self._conn.close()
+        return 0
+
+    def _loadRecord(self, db_key:DBRef, record:ProteinRecord):
+        """
+        Overrides the default `AbstractLoader._loadRecord` method.
+
+        :param db_key: the "primary" namespace, accession from the parsed
+                       record
+        :param record: a `ProteinRecord` generated from the parsed record
+        """
+        pid = str(self._protein_id)
+
+        self._proteins.write('{}\t{}\t{}\t{}\n'.format(
+            pid, str(record.species_id),
+            '\\N' if record.length is None else record.length,
+            '\\N' if record.mass is None else record.mass
+        ))
+
+        self._protein_refs.write('{}\t{}\t{}\t{}\t{}\n'.format(
+            db_key.namespace, db_key.accession,
+            '\\N' if record.symbol is None else record.symbol,
+            '\\N' if record.name is None else record.name, pid
+        ))
+
+        for ns, acc in record.refs:
+            if acc != db_key.accession or ns != db_key.namespace:
+                self._protein_refs.write('{}\t{}\t\\N\t\\N\t{}\n'.format(
+                    ns, acc, pid
+                ))
+
+        for cat, values in record.strings.items():
+            for val in values:
+                self._protein_strings.write(
+                    '{}\t{}\t{}\n'.format(pid, cat, val)
+                )
+
+        gene_ids = set()
+
+        for key in record.mappings:
+            try:
+                gene_ids.add(self._db_key2gid_map[key])
+            except KeyError:
+                pass
+
+        for gid in gene_ids:
+            self._mappings.write('{}\t{}\n'.format(gid, pid))
+
+        self._protein_id += 1
+
+

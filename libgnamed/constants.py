@@ -38,7 +38,6 @@ REPOSITORIES = {
 
 class Namespace:
     # general DBs
-    ensemble = 'ens'
     entrez = 'gi'
     uniprot = 'uni'
     # organism-specific DBs
@@ -54,7 +53,6 @@ class Namespace:
 
 
 NAMESPACES = frozenset({
-    Namespace.ensemble,
     Namespace.entrez,
     Namespace.uniprot,
     Namespace.hgnc,
@@ -70,7 +68,6 @@ NAMESPACES = frozenset({
 
 
 GENE_SPACES = frozenset({
-    Namespace.ensemble,
     Namespace.entrez,
     Namespace.hgnc,
     Namespace.mgd,
@@ -111,3 +108,15 @@ SPECIES = frozenset({
     Species.nematode,
     Species.frog,
     })
+
+SPECIES_SPACES = {
+    Namespace.hgnc: Species.human,
+    Namespace.mgd: Species.mouse,
+    Namespace.rgd: Species.rat,
+    Namespace.flybase: Species.fly,
+    Namespace.sgd: Species.yeast,
+    Namespace.tair: Species.cress,
+    Namespace.ecocyc: Species.e_coli,
+    Namespace.wormbase: Species.nematode,
+    Namespace.xenbase: Species.frog,
+    }

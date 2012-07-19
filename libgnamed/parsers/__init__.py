@@ -19,23 +19,32 @@ class AbstractParser:
     `libgnamed.progress_bar` given the log-level.
     """
 
+    FLUSH = 10000
+    """
+    Default number of records to parse before invoking `_flush`.
+
+    Can be configured per instance via the `flush` integer attribute.
+    """
+
     def __init__(self, *files:str, encoding:str=sys.getdefaultencoding()):
         """
         :param files: any number of files (pathnames) to load
         :param encoding: the character encoding used by these files
         """
         self.session = None
-        self.db_objects = None
+        self.db_refs = None
         self.files = files
         self.encoding = encoding
         self.record = None
         self.current_id = None
+        self.flush = AbstractParser.FLUSH
 
     def parse(self):
         """
         Parse all relevant files and commit the added records to the DB.
 
-        Manages DB session state/handling.
+        Manages DB session state/handling and flushes parsed records to the
+        DB every `flush` records.
         """
         self.session = Session(autoflush=False)
 
@@ -49,7 +58,7 @@ class AbstractParser:
 
             self.record = None
             self.current_id = None
-            self.db_objects = {}
+            self.db_refs = {}
             line_count = self._setup(stream)
 
             line = stream.readline().strip()
@@ -64,7 +73,7 @@ class AbstractParser:
 
                     num_records += self._parse(line)
 
-                    if num_records % 10000 == 0:
+                    if num_records and num_records % self.flush == 0:
                         self._flush()
 
                     line = stream.readline().strip()
@@ -102,7 +111,7 @@ class AbstractParser:
                 else:
                     logging.error(str(e).strip())
             else:
-                logging.info("added %s records from %s", num_records, file)
+                logging.info("parsed %s records from %s", num_records, file)
 
         try:
             self.session.close()
@@ -116,14 +125,14 @@ class AbstractParser:
         finally:
             self.session = None
 
-    def _setup(self, stream:io.TextIOWrapper):
+    def _setup(self, stream:io.TextIOWrapper) -> int:
         """
         Setup the virgin stream and return the line count into the stream after
         setup.
         """
         return 0
 
-    def _parse(self, line:str):
+    def _parse(self, line:str) -> int:
         """
         Parse a particular line and return the number of processed records.
         """
@@ -131,12 +140,11 @@ class AbstractParser:
 
     def _flush(self):
         """
-        Write currently held data into the DB to free some RAM.
+        Write records into the DB to allow GC to free memory.
         """
-        self.db_objects = {}
-        self.session.flush()
+        raise NotImplementedError('abstract')
 
-    def _cleanup(self, stream:io.TextIOWrapper):
+    def _cleanup(self, stream:io.TextIOWrapper) -> int:
         """
         Clean up the stream and dangling records and return the number of
         processed records.
@@ -145,15 +153,15 @@ class AbstractParser:
 
 #class Parser(AbstractParser):
 #
-#    def _setup(self, stream:io.TextIOWrapper):
+#    def _setup(self, stream:io.TextIOWrapper) -> int:
 #        return 0 # default: no lines have been consumed
 #
-#    def _parse(self, line:str):
+#    def _parse(self, line:str) -> int:
 #        #self.loadRecord(record, ...)
 #        return 0 # default: no record has been added
 #
 #    def _flush(self):
 #        super(Parser, self)._flush()
 #
-#    def _cleanup(self, stream:io.TextIOWrapper):
+#    def _cleanup(self, stream:io.TextIOWrapper) -> int:
 #        return 0 # default: no record has been added

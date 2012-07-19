@@ -151,7 +151,7 @@ class Protein(_Base):
     # genes = relationship('Gene', secondary=mapping, backref='proteins')
 
     def __init__(self, species_id:int, mass:int=None, length:int=None):
-        self.species = species_id
+        self.species_id = species_id
         self.mass = mass
         self.length = length
 

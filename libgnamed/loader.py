@@ -6,17 +6,20 @@
 .. License: GNU Affero GPL v3 (http://www.gnu.org/licenses/agpl.html)
 """
 import logging
-import sys
 
-from collections import defaultdict
+from collections import defaultdict, namedtuple
+from libgnamed.constants import GENE_SPACES, PROTEIN_SPACES, SPECIES_SPACES, Namespace
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import and_
+from sys import getdefaultencoding
 
-from libgnamed.constants import Namespace
-from libgnamed.orm import Database, Gene, GeneName, GeneSymbol, GeneKeyword
+from libgnamed.orm import \
+    Gene, Protein, GeneRef, ProteinRef, GeneString, ProteinString
 from libgnamed.parsers import AbstractParser
 
-class Record:
+DBRef = namedtuple('DBRef', ['namespace', 'accession'])
+
+class AbstractRecord:
     """
     The abstract representation of a gene/protein name record to store.
 
@@ -24,12 +27,10 @@ class Record:
     relevant, novel data to the DB.
     """
 
-    def __init__(self, namespace:str, accession:str, species_id:int,
-                 version:str=None, symbol:str=None, name:str=None):
+    def __init__(self, species_id:int, symbol:str=None, name:str=None):
         """
-        Initialize with the `Namespace` and accession of that record, the
-        official symbol and name of that gene/protein as found in the
-        originating DB, and the species ID for that record.
+        Initialize a new record with the species ID, the official symbol and
+        name of that gene/protein as found in the originating DB.
 
         Add additional `symbols` and `names` as strings after initialization
         to these corresponding sets.
@@ -42,222 +43,230 @@ class Record:
         locations and chromosomes, this data is handled directly in the parsers
         and is not added to the `Record` instances.
         """
-        self.namespace = namespace
-        self.accession = accession
-        self.version = version
+        self.species_id = species_id
         self.symbol = symbol
         self.name = name
-        self.species_id = species_id
-        self.symbols = set()
-        self.names = set()
-        self.keywords = set()
-        self.links = set()
-        self.namespaces = set()
-        self.accessions = set()
+        self.strings = defaultdict(set)
+        self.refs = set()
+        self.mappings = set()
 
         if symbol:
-            self.symbols.add(symbol)
+            self.addSymbol(symbol)
 
         if name:
-            self.names.add(name)
+            self.addName(name)
 
-    def __str__(self):
-        return "{}:{}@{} (v={}, s={}, n={})".format(
-            self.namespace, self.accession, self.species_id, self.version,
-            self.symbol, self.name
+    def __repr__(self):
+        return '<Record species:{} {} "{}">'.format(
+            self.species_id, self.symbol, self.name
         )
-
-
-class AbstractProteinParser(AbstractParser):
-    """
-    A (still) abstract parser that can be used to load Protein records into the
-    database.
-
-    This parser should only be implemented for protein-centric repositories
-    such as UniProt.
-    """
-
-    def __init__(self, *files:str, encoding:str=sys.getdefaultencoding()):
-        """
-        :param files: any number of files (pathnames) to load
-        :param encoding: the character encoding used by these files
-        """
-        super(AbstractProteinParser, self).__init__(*files, encoding=encoding)
-        self.db_objects = {}
 
     #noinspection PyUnusedLocal
-    def loadRecord(self, record:Record, length:int=None, mass:int=None):
-        """
-        Load a repository `Record` into the database.
+    def addDBRef(self, db_ref:DBRef):
+        raise NotImplementedError('abstract')
 
-        :param record: a `Record` representation of the parsed data
-        :param length: the length (AA) for this protein (if known)
-        :param mass: the mass (kDa) for this `record` (if known)
-        """
-        # TODO
-        pass
+    def addKeyword(self, keyword:str):
+        self.strings['keyword'].add(keyword)
+
+    def addName(self, name:str):
+        self.strings['name'].add(name)
+
+    def addSymbol(self, symbol:str):
+        self.strings['symbol'].add(symbol)
+
+    def addString(self, cat:str, value:str):
+        self.strings[cat].add(value)
 
 
-class AbstractGeneParser(AbstractParser):
+class GeneRecord(AbstractRecord):
+
+    def __init__(self, species_id:int, symbol:str=None, name:str=None,
+                 chromosome:str=None, location:str=None):
+        super(GeneRecord, self).__init__(species_id, symbol=symbol, name=name)
+        self.chromosome = chromosome
+        self.location = location
+
+    def addDBRef(self, db_ref:DBRef):
+        if db_ref.namespace in GENE_SPACES:
+            if db_ref.namespace != Namespace.entrez:
+                assert SPECIES_SPACES[db_ref.namespace] == self.species_id,\
+                "DBRef {} not for tax:{}".format(db_ref, self.species_id)
+
+            self.refs.add(db_ref)
+        else:
+            # mappings may be cross-species!
+            self.mappings.add(db_ref)
+
+
+class ProteinRecord(AbstractRecord):
+
+    def __init__(self, species_id:int, symbol:str=None, name:str=None,
+                 length:int=None, mass:int=None):
+        super(ProteinRecord, self).__init__(species_id,
+                                            symbol=symbol, name=name)
+        self.length = length
+        self.mass = mass
+
+    def addDBRef(self, db_ref:DBRef):
+        if db_ref.namespace in PROTEIN_SPACES:
+            if db_ref.namespace != Namespace.uniprot:
+                assert SPECIES_SPACES[db_ref.namespace] == self.species_id, \
+                    "DBRef {} not for tax:{}".format(db_ref, self.species_id)
+
+            self.refs.add(db_ref)
+        else:
+            # mappings may be cross-species!
+            self.mappings.add(db_ref)
+
+
+class AbstractLoader(AbstractParser):
     """
-    A (still) abstract parser that can be used to load Gene records into the
-    database.
-
-    This parser should be implemented for all repositories but protein-centric
-    databases such as UniProt.
+    Database loading functionality common to both gene and protein entities.
     """
 
-    def __init__(self, *files:str, encoding:str=sys.getdefaultencoding()):
+    def __init__(self, *files:str, encoding:str=getdefaultencoding()):
         """
         :param files: any number of files (pathnames) to load
         :param encoding: the character encoding used by these files
         """
-        super(AbstractGeneParser, self).__init__(*files, encoding=encoding)
-        self.db_objects = {}
+        super(AbstractLoader, self).__init__(*files, encoding=encoding)
+        self.db_refs = {}
 
-    def loadRecord(self, record:Record,
-                   location:str=None, chromosome:str=None):
+    def _flush(self):
         """
-        Load a repository `Record` into the database.
-
-        :param record: a `Record` representation of the parsed data
-        :param location: the chromosome location for the associated gene (if
-                         known)
-        :param chromosome: the chromosome (name, number, ...) for the
-                           associated gene (if known)
+        Write session objects into the DB to allow the GC to free some memory.
         """
-        logging.debug('loading %s:%s', record.namespace, record.accession)
+        self.db_refs = {}
+        self.session.flush()
 
-        # the ns, acc key for this Database object/Record
-        db_key = (record.namespace, record.accession)
+    def _loadRecord(self, db_key:DBRef, record:AbstractRecord):
+        """
+        Load an `AbstractRecord` into the database.
 
+        :param db_key: the "primary" namespace, accession from the parsed
+                       record
+        :param record: either a `GeneRecord` or `ProteinRecord` representation
+                       of the parsed data
+        """
+        logging.debug('loading %s', ", ".join(
+            "{}:{}".format(*r) for r in record.refs
+        ))
+
+        # the entity associated to this record
+        entity = None
+        # this list ensures that there will be only one entity
+        entities = list()
         # set of ns, acc keys that have not yet been loaded
         missing_db_keys = set(
-            ns_acc for ns_acc in record.links if ns_acc not in self.db_objects
+            ns_acc for ns_acc in record.refs if ns_acc not in self.db_refs
         )
-        existing_db_keys = record.links.difference(missing_db_keys)
+        # set of ns, acc keys that have been loaded already
+        existing_db_keys = record.refs.difference(missing_db_keys)
+        # update DB references
+        update_entity = list()
+        # `setEntityAttributeFunction`s by attribute name
+        assign = {}
 
-        if db_key not in self.db_objects:
-            missing_db_keys.add(db_key)
+        def setEntityAttributeFunction(attr:str):
+            return lambda entity: setattr(entity, attr, getattr(record, attr))
+
+        for name in ['length', 'mass', 'location', 'chromosome']:
+            if hasattr(record, name) and getattr(record, name):
+                assign[name] = setEntityAttributeFunction(name)
+            else:
+                assign[name] = lambda entity: None
+
+        def addEntity(e):
+            assign['length'](e)
+            assign['mass'](e)
+            assign['location'](e)
+            assign['chromosome'](e)
+            entities.append(e)
+
+        # set the object types according to the record type
+        if isinstance(record, GeneRecord):
+            EntityRef = GeneRef
+            Entity = Gene
+            EntityString = GeneString
+            entity_name = 'gene'
         else:
-            existing_db_keys.add(db_key)
+            EntityRef = ProteinRef
+            Entity = Protein
+            EntityString = ProteinString
+            entity_name = 'protein'
 
-        # split the keys into two lists of namespaces and accessions
-        ns_list, acc_list = zip(*missing_db_keys)
+        if missing_db_keys:
+            # split the keys into two lists of namespaces and accessions
+            ns_list, acc_list = zip(*missing_db_keys)
 
-        # load *everything* relevant to the current Record in one large query
-        for db in self.session.query(Database).options(
-            joinedload(Database.genes),
-            joinedload('genes.symbols'),
-            joinedload('genes.names'),
-            ).filter(and_(Database.namespace.in_(ns_list),
-                          Database.accession.in_(acc_list))):
-            key = (db.namespace, db.accession)
-            self.db_objects[key] = db
+            # load *everything* relevant to the record in one large query
+            for db_ref in self.session.query(EntityRef).options(
+                joinedload(getattr(EntityRef, entity_name)),
+                joinedload(entity_name + '.strings'),
+                ).filter(and_(EntityRef.namespace.in_(ns_list),
+                              EntityRef.accession.in_(acc_list))):
+                key = DBRef(db_ref.namespace, db_ref.accession)
+                self.db_refs[key] = db_ref
+                #raise RuntimeError('break')
 
-            if key in missing_db_keys:
-                missing_db_keys.remove(key)
-                existing_db_keys.add(key)
+                if key in missing_db_keys:
+                    missing_db_keys.remove(key)
+                    existing_db_keys.add(key)
 
-        # sets of Database keys grouped by their associated gene IDs
-        gene_id2db_keys = defaultdict(set)
+        # get the entity for each existing EntityRef object
+        for key in existing_db_keys:
+            db_ref = self.db_refs[key]
+            entity = getattr(db_ref, entity_name)
 
-        # get or create the Database object for this Record
-        if db_key in missing_db_keys:
-            logging.debug('creating new Database object %s:%s', *db_key)
-            missing_db_keys.remove(db_key)
-            db_object = Database(
-                record.namespace, record.accession, version=record.version,
-                symbol=record.symbol, name=record.name
-            )
-            self.session.add(db_object)
-            self.db_objects[db_key] = db_object
-        else:
-            existing_db_keys.remove(db_key)
-            db_object = self.db_objects[db_key]
-            db_object.symbol = record.symbol
-            db_object.name = record.name
+            if key == db_key:
+                db_ref.symbol = record.symbol
+                db_ref.name = record.name
 
-        # create any missing, linked Database objects
-        for ns_acc in missing_db_keys:
-            logging.debug('creating new Database object %s:%s', *ns_acc)
-            db = Database(*ns_acc)
-            self.session.add(db)
-            self.db_objects[ns_acc] = db
+            if entity:
+                if entity not in entities:
+                    addEntity(entity)
+            else:
+                update_entity.append(db_ref)
 
-        # relevant genes
-        genes = set(db_object.genes)
-
-        # gene ID to linked DB objects mappings for existing DB objects and
-        # define the relevant genes (usually, only one) for this record
-        for ns_acc in tuple(existing_db_keys):
-            if ns_acc[0] == Namespace.uniprot:
-                # do not add protein links to genes
-                existing_db_keys.remove(ns_acc)
-                continue
-
-            for g in self.db_objects[ns_acc].genes:
-                if g.species_id != record.species_id:
-                    # do not iterate links to genes of other species
-                    existing_db_keys.remove(ns_acc)
-                    continue
-
-                gene_id2db_keys[g.id].add(ns_acc)
-
-                if location:
-                    # assume that the current location is the best, i.e., that
-                    # first the generic databases and then the specialized
-                    # databases are loaded
-                    g.location = location
-
-                if chromosome:
-                    # as with location
-                    g.chromosome = chromosome
-
-                genes.add(g)
-
-        if not genes:
-            # create a new gene
-            logging.debug("creating a new gene for %s", db_object)
-            g = Gene(record.species_id, location=location,
-                     chromosome=chromosome)
-            self.session.add(g)
-            genes.add(g)
-        elif len(genes) > 1:
-            # issue a warning that more than one gene was found
-            link_str = ", {}".format(", ".join(
-                "{}:{}".format(ns, acc) for ns, acc in existing_db_keys
-            )) if existing_db_keys else ""
-            logging.warn(
-                "%i genes (%s) found for %s%s", len(genes),
-                ", ".join(str(g.id) for g in genes), db_object, link_str
+        # create the entity or ensure we have exactly one
+        if not entities:
+            logging.debug('creating a new %s entity', entity_name)
+            entity = Entity(record.species_id)
+            self.session.add(entity)
+            addEntity(entity)
+        elif len(entities) > 1:
+            # raise an error when more than one entity was found
+            raise RuntimeError(
+                "{} {}s ({}) found for {}:{} {}".format(
+                    len(entities), entity_name,
+                    ", ".join(str(e.id) for e in entities), db_key.namespace,
+                    db_key.accession, record.refs
+                )
             )
 
-        for g in genes:
-            logging.debug('started updating %s', g)
-            known = gene_id2db_keys[g.id]
+        # update all EntityRef objects that were not pointing to the entity
+        for db_ref in update_entity:
+            setattr(db_ref, entity_name, entity)
 
-            if db_key not in known:
-                logging.debug('adding %s to %s set', db_object, g)
-                g.records.append(db_object)
+        # create all missing EntityRef objects
+        for key in missing_db_keys:
+            logging.debug('creating new reference object %s:%s', *key)
+            db_ref = EntityRef(*key)
+            setattr(db_ref, entity_name, entity)
+            self.session.add(db_ref)
+            self.db_refs[key] = db_ref
 
-            for ns_acc in record.links.difference(known):
-                logging.debug('linking %s:%s to %s', ns_acc[0], ns_acc[1], g)
-                db_obj = self.db_objects[ns_acc]
-                g.records.append(db_obj)
+            if key == db_key:
+                db_ref.symbol = record.symbol
+                db_ref.name = record.name
 
-            for sym in record.symbols.difference(s.symbol for s in g.symbols):
-                logging.debug('adding symbol="%s" to %s', sym, g)
-                g.symbols.append(GeneSymbol(g.id, sym))
+        # finally, update the entity with any new strings
+        known = defaultdict(set)
 
-            for name in record.names.difference(n.name for n in g.names):
-                logging.debug('adding name="%s" to %s', name, g)
-                g.names.append(GeneName(g.id, name))
+        for s in entity.strings:
+            known[s.cat].add(s.value)
 
-            for kwd in record.keywords.difference(
-                k.keyword for k in g.keywords
-            ):
-                logging.debug('adding keyword="%s" to %s', kwd, g)
-                g.keywords.append(GeneKeyword(g.id, kwd))
-
-            logging.debug('finished updating %s', g)
+        for cat in record.strings:
+            for value in record.strings[cat].difference(known[cat]):
+                logging.debug('adding %s="%s" to %s', cat, value, entity)
+                entity.strings.append(EntityString(entity.id, cat, value))

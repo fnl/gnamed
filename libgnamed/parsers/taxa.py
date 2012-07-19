@@ -18,44 +18,40 @@ class Parser(AbstractParser):
 
     Implements the `AbstractParser._parse` method.
 
-    As loading species is trivial, it has its own DB loading mechanism
-    instead of relying on a GeneLoader or ProteinLoader implementation as
-    the other parsers do.
+    As loading species is trivial, but special, it has its own DB loading
+    mechanism instead of relying on the AbstractLoader implementation.
     """
 
     def _setup(self, file:io.TextIOWrapper) -> int:
-        self._is_second = True if hasattr(self, '_taxa_map') else False
+        lines = super(Parser, self)._setup(file)
+        self._parsing_names = True if hasattr(self, '_taxa_map') else False
         self._on_hold = defaultdict(list)
         self._loaded = set()
 
-        if not self._is_second:
+        if not self._parsing_names:
             self._taxa_map = dict()
             self._root_found = False
-            logging.info('parsing nodes')
+            logging.debug('parsing nodes')
         else:
-            logging.info('parsing names')
+            logging.debug('parsing names')
 
-        return 0
+        return lines
 
-    def _loadRecursion(self, tax_id, count=0):
+    def _loadRecursion(self, tax_id):
         records = self._on_hold.pop(tax_id)
         self.session.add_all(records)
         self._loaded.update(r.id for r in records)
-        count += len(records)
 
         for r in records:
             logging.debug("storing %s", r.id)
 
             if r.id in self._on_hold:
-                count += self._loadRecursion(r.id, count)
-
-        return count
+                self._loadRecursion(r.id)
 
     def _parse(self, line:str) -> int:
-        added_records = 0
         items = [i.strip() for i in line.split('|')]
 
-        if self._is_second:
+        if self._parsing_names:
             assert len(items) == 5, line
             species_id = int(items[0])
 
@@ -66,19 +62,17 @@ class Parser(AbstractParser):
                         logging.debug("storing %s", self.current_id)
                         self.session.add(self.record)
                         self._loaded.add(self.current_id)
-                        added_records = 1
 
                         if self.current_id in self._on_hold:
-                            added_records += self._loadRecursion(
-                                self.current_id
-                            )
+                            self._loadRecursion(self.current_id)
                     else:
                         self._on_hold[self.record.parent_id].append(
                             self.record
                         )
 
                 parent_id, rank = self._taxa_map[species_id]
-                logging.debug('building %s->%s "%s"', species_id, parent_id, rank)
+                logging.debug('building %s->%s "%s"',
+                              species_id, parent_id, rank)
                 self.record = Species(species_id, parent_id, rank)
                 self.current_id = species_id
 
@@ -109,27 +103,24 @@ class Parser(AbstractParser):
                 items[1] = int(items[1])
 
             self._taxa_map[int(items[0])] = (items[1], items[2])
-            added_records = 1
 
-        return added_records
+        return 1
 
     def _cleanup(self, file:io.TextIOWrapper) -> int:
-        count = 0
+        num_records = super(Parser, self)._cleanup(file)
 
         if self.record:
             self.session.add(self.record)
-            count += 1
 
         if len(self._on_hold):
             if self.record.id in self._on_hold:
-                count += self._loadRecursion(self.record.id)
+                self._loadRecursion(self.record.id)
 
             if len(self._on_hold):
-                # very, very bad - but try to add all
+                # very, very bad - but try to add all, nonetheless
                 logging.warn('could not load all tree dependencies in order')
 
                 for records in self._on_hold.values():
                     self.session.add_all(records)
-                    count += len(records)
 
-        return count
+        return num_records

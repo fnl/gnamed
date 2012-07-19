@@ -12,8 +12,7 @@ from collections import namedtuple
 from sqlalchemy.schema import Sequence
 
 from libgnamed.constants import Namespace
-from libgnamed.loader import Record, AbstractGeneParser
-from libgnamed.parsers import AbstractParser
+from libgnamed.loader import GeneRecord, AbstractLoader, DBRef
 
 Line = namedtuple('Line', [
     'species_id', 'id',
@@ -61,15 +60,13 @@ JUNK_NAMES = frozenset([
 
 # "translation" of dbxref names to the local Namespace names
 TRANSLATE = {
-    'Ensembl': Namespace.ensemble,
+    'ECOCYC': Namespace.ecocyc,
     'FLYBASE': Namespace.flybase,
     'HGNC': Namespace.hgnc,
     'MGI': Namespace.mgd,
     'RGD': Namespace.rgd,
     'SGD': Namespace.sgd,
-    'UniProtKB/Swiss-Prot': Namespace.uniprot,
     'TAIR': Namespace.tair,
-    'ECOCYC': Namespace.ecocyc,
     'WormBase': Namespace.wormbase,
     'Xenbase': Namespace.xenbase,
 
@@ -82,6 +79,7 @@ TRANSLATE = {
     'CGNC': None,
     'dictyBase': None,
     'EcoGene': None,
+    'Ensembl': None,
     'HPRD': None,
     'HPRDmbl': None,
     'IMGT/GENE-DB': None,
@@ -95,6 +93,7 @@ TRANSLATE = {
     'PBR': None,
     'PFAM': None,
     'PseudoCap': None,
+    'UniProtKB/Swiss-Prot': None, # do not map those five (...) references
     'VBRC': None,
     'VectorBase': None,
     'Vega': None,
@@ -109,17 +108,28 @@ def isGeneSymbol(sym:str) -> bool:
     """
     return len(sym) < 65 and " " not in sym
 
-class EntrezParserMixin:
+
+class Parser(AbstractLoader):
+    """
+    A parser for NCBI Entrez Gene gene_info records.
+
+    Implements the `AbstractParser._parse` method.
+    """
+
+    def _setup(self, stream:io.TextIOWrapper):
+        lines = super(Parser, self)._setup(stream)
+        logging.debug("file header:\n%s", stream.readline().strip())
+        return lines + 1
 
     def _parse(self, line:str):
         # remove the backslash junk in the Entrez data file
         idx = line.find('\\')
 
         while idx != -1:
-            if len(line) > idx + 1 and line[idx+1].isalnum():
-                line = '{}/{}'.format(line[:idx], line[idx+1:])
+            if len(line) > idx + 1 and line[idx + 1].isalnum():
+                line = '{}/{}'.format(line[:idx], line[idx + 1:])
             else:
-                line = '{}{}'.format(line[:idx], line[idx+1:])
+                line = '{}{}'.format(line[:idx], line[idx + 1:])
 
             idx = line.find('\\', idx)
 
@@ -144,11 +154,16 @@ class EntrezParserMixin:
         row = Line._make(items)
         # example of a bad symbol: gi:835054 (but accepted)
         assert not row.symbol or len(row.symbol) < 65,\
-        '{}:{} has an illegal symbol="{}"'.format(
-            Namespace.entrez, row.id, row.symbol
-        )
-        record = Record(Namespace.entrez, row.id, row.species_id,
-                        symbol=row.symbol, name=row.name)
+            '{}:{} has an illegal symbol="{}"'.format(
+                Namespace.entrez, row.id, row.symbol
+            )
+        db_key = DBRef(Namespace.entrez, row.id)
+        record = GeneRecord(row.species_id,
+                            symbol=row.symbol,
+                            name=row.name,
+                            chromosome=row.chromosome,
+                            location=row.map_location)
+        record.addDBRef(db_key)
 
         # separate existing DB links and new DB references
         if row.dbxrefs:
@@ -157,16 +172,16 @@ class EntrezParserMixin:
 
                 try:
                     if TRANSLATE[db]:
-                        record.links.add((TRANSLATE[db], acc))
+                        record.addDBRef(DBRef(TRANSLATE[db], acc))
                 except KeyError:
                     logging.warn('unknown dbXref to "%s"', db)
 
         # parsed symbol strings
         if row.nomenclature_symbol:
-            record.symbols.add(row.nomenclature_symbol)
+            record.addSymbol(row.nomenclature_symbol)
 
         if row.locus_tag:
-            record.symbols.add(row.locus_tag)
+            record.addSymbol(row.locus_tag)
 
         if row.synonyms:
             # clean up the synonym mess, moving names to where they
@@ -177,13 +192,13 @@ class EntrezParserMixin:
 
                 if sym != "unnamed" and sym.lower() not in JUNK_NAMES:
                     if isGeneSymbol(sym) or len(sym) < 17:
-                        record.symbols.add(sym)
+                        record.addSymbol(sym)
                     else:
-                        record.names.add(sym)
+                        record.addName(sym)
 
         # parsed name strings
         if row.nomenclature_name:
-            record.names.add(row.nomenclature_name)
+            record.addName(row.nomenclature_name)
 
         if row.other_designations:
             # as with synonyms, at least skip the most frequent junk
@@ -192,121 +207,114 @@ class EntrezParserMixin:
 
                 if name.lower() not in JUNK_NAMES:
                     if isGeneSymbol(name):
-                        record.symbols.add(name)
+                        record.addSymbol(name)
                     else:
-                        record.names.add(name)
+                        record.addName(name)
 
         # parsed keyword strings
         if row.type_of_gene and row.type_of_gene != 'other':
-            record.keywords.add(row.type_of_gene)
+            record.addKeyword(row.type_of_gene)
 
-        self.loadRecord(record, chromosome=row.chromosome,
-                        location=row.map_location)
+        self._loadRecord(db_key, record)
         return 1
 
 
-class SpeedLoader(EntrezParserMixin, AbstractParser):
-    # note: this approach is actually generic and not entrez specific
-    # however, so far there is no reason to use this approach for any
-    # other database
-    # furthermore, apart from "dump", and "connect", the approaches should be DB
-    # agnositc and might be reused to write SpeedLoaders for other DBs
+class SpeedLoader(Parser):
+    """
+    Overrides the database loading methods to directly dump all data "as is".
+    """
 
     def setDSN(self, dsn:str):
+        """
+        Set the DSN string for connecting psycopg2 to a Postgres DB.
+
+        :param dsn: the DSN string
+        """
         self._dsn = dsn
 
-    def _setup(self, stream:io.TextIOWrapper):
-        self._gene_id = self.session.execute(Sequence('genes_id_seq'))
-        self._databases = io.StringIO()
+    def _initBuffers(self):
         self._genes = io.StringIO()
-        self._db2g = io.StringIO()
-        self._gene_symbols = io.StringIO()
-        self._gene_names = io.StringIO()
-        self._gene_keywords = io.StringIO()
-        self._links = set()
+        self._gene_refs = io.StringIO()
+        self._gene_strings = io.StringIO()
+        #self._mappings = io.StringIO()
+
+    def _setup(self, stream:io.TextIOWrapper) -> int:
+        lines = super(SpeedLoader, self)._setup(stream)
+        self._gene_id = self.session.execute(Sequence('genes_id_seq'))
+        self._db_key2pid_map = dict()
+        self._initBuffers()
         self._connect()
-        logging.debug("file header:\n%s", stream.readline().strip())
-        return 1
+        #self._loadExistingLinks()
+        return lines
 
     def _connect(self):
         import psycopg2
         self._conn = psycopg2.connect(self._dsn)
 
-    def _dump(self):
+    def _loadExistingLinks(self):
+        cursor = self._conn.cursor('links')
+        cursor.execute("SELECT namespace, accession, id FROM protein_refs;")
+
+        for ns, acc, pid in cursor:
+            self._db_key2pid_map[DBRef(ns, acc)].add(pid)
+
+        cursor.close()
+
+    def _flush(self):
         cur = self._conn.cursor()
         stream = lambda buffer: io.StringIO(buffer.getvalue())
 
         try:
-            cur.copy_from(stream(self._databases), 'databases')
             cur.copy_from(stream(self._genes), 'genes')
-            cur.copy_from(stream(self._gene_names), 'gene_names')
-            cur.copy_from(stream(self._gene_symbols), 'gene_symbols')
-            cur.copy_from(stream(self._gene_keywords), 'gene_keywords')
-            cur.copy_from(stream(self._db2g), 'db_accessions2gene_ids')
+            cur.copy_from(stream(self._gene_refs), 'gene_refs')
+            cur.copy_from(stream(self._gene_strings), 'gene_strings')
+            #cur.copy_from(stream(self._mappings), 'genes2proteins')
             cur.execute("ALTER SEQUENCE genes_id_seq RESTART WITH %s",
                 (self._gene_id,))
         finally:
             cur.close()
 
-    def _flush(self):
-        self._dump()
-        self._databases = io.StringIO()
-        self._genes = io.StringIO()
-        self._db2g = io.StringIO()
-        self._gene_symbols = io.StringIO()
-        self._gene_names = io.StringIO()
-        self._gene_keywords = io.StringIO()
+        self._initBuffers()
 
-    def _cleanup(self, stream:io.TextIOWrapper):
-        self._dump()
+    def _cleanup(self, stream:io.TextIOWrapper) -> int:
+        lines = super(SpeedLoader, self)._setup(stream)
+        self._flush()
         self._conn.commit()
         self._conn.close()
-        return 0
+        return 0 # return num records!
 
-    def loadRecord(self, record:Record,
-                   chromosome:str=None, location:str=None):
+    def _loadRecord(self, db_key:DBRef, record:GeneRecord):
+        """
+        Overrides the `AbstractLoader._loadRecord` method.
+
+        :param db_key: the "primary" `DBRef` for this record.
+        :param record: the `GeneRecord` to load
+        """
+        assert not record.mappings, "speedloader does not handle mappings"
         gid = str(self._gene_id)
+
         self._genes.write('{}\t{}\t{}\t{}\n'.format(
             gid, str(record.species_id),
-            '\\N' if chromosome is None else chromosome,
-            '\\N' if location is None else location
+            '\\N' if record.chromosome is None else record.chromosome,
+            '\\N' if record.location is None else record.location
         ))
-        self._databases.write('{}\t{}\t{}\t{}\t{}\n'.format(
-            record.namespace, record.accession,
-            '\\N' if record.version is None else record.version,
+
+        self._gene_refs.write('{}\t{}\t{}\t{}\t{}\n'.format(
+            db_key.namespace, db_key.accession,
             '\\N' if record.symbol is None else record.symbol,
-            '\\N' if record.name is None else record.name
-        ))
-        self._db2g.write('{}\t{}\t{}\n'.format(
-            record.namespace, record.accession, gid
+            '\\N' if record.name is None else record.name, gid
         ))
 
-        for ns_acc in record.links:
-            if ns_acc not in self._links:
-                self._databases.write(
-                    '{}\t{}\t\\N\t\\N\t\\N\n'.format(*ns_acc)
+        for ns_acc in record.refs:
+            if ns_acc != db_key:
+                self._gene_refs.write('{}\t{}\t{}\t{}\t{}\n'.format(
+                    db_key.namespace, db_key.accession, '\\N', '\\N', gid
+                ))
+
+        for cat, values in record.strings.items():
+            for val in values:
+                self._gene_strings.write(
+                    '{}\t{}\t{}\n'.format(gid, cat, val)
                 )
-                self._links.add(ns_acc)
-
-            self._db2g.write('{}\t{}\t{}\n'.format(ns_acc[0], ns_acc[1], gid))
-
-        for symbol in record.symbols:
-            self._gene_symbols.write('{}\t{}\n'.format(gid, symbol))
-
-        for name in record.names:
-            self._gene_names.write('{}\t{}\n'.format(gid, name))
-
-        for kwd in record.keywords:
-            self._gene_keywords.write('{}\t{}\n'.format(gid, kwd))
 
         self._gene_id += 1
-
-class Parser(EntrezParserMixin, AbstractGeneParser):
-    """
-    A parser for NCBI Entrez Gene gene_info records.
-    """
-
-    def _setup(self, stream:io.TextIOWrapper):
-        logging.debug("file header:\n%s", stream.readline().strip())
-        return 1
-
