@@ -98,11 +98,11 @@ class SpeciesName(_Base):
 
 mapping = Table(
     'genes2proteins', _Base.metadata,
-    Column('protein_id', BigInteger, ForeignKey(
-        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True),
     Column('gene_id', BigInteger, ForeignKey(
         'genes.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True),
+    Column('protein_id', BigInteger, ForeignKey(
+        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
     ), primary_key=True),
 )
 
