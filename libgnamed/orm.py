@@ -9,15 +9,14 @@ import sqlalchemy
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import engine
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.schema import \
-    Column, Sequence, ForeignKey, ForeignKeyConstraint, Table
-from sqlalchemy.types import Integer, String, Text, BigInteger
+from sqlalchemy.schema import Column, ForeignKey, Sequence, Table
+from sqlalchemy.types import BigInteger, Integer, String, Text
 
 _Base = declarative_base()
 _db = None
-_session = lambda args: None
+_session = lambda *args, **kwds: None
 
 def initdb(*args, **kwds):
     """
@@ -51,30 +50,62 @@ class Species(_Base):
     __tablename__ = 'species'
 
     id = Column(Integer, primary_key=True)
-    acronym = Column(String(64))
-    common_name = Column(Text)
-    scientific_name = Column(Text)
+    parent_id = Column(Integer, ForeignKey(
+        'species.id', onupdate='CASCADE', ondelete='CASCADE'
+    ))
+    rank = Column(String(32), nullable=False)
+    unique_name = Column(Text, nullable=False)
+    genbank_name = Column(Text)
 
     genes = relationship('Gene', cascade='all', backref='species')
     proteins = relationship('Protein', cascade='all', backref='species')
+    names = relationship('SpeciesName', cascade='all', backref='species')
+    children = relationship('Species', cascade='all',
+                            backref=backref('parent', remote_side=[id]))
 
-    def __init__(self, id:int, common_name:str=None, scientific_name:str=None,
-                 acronym:str=None):
+    def __init__(self, id:int, parent_id:int, rank:str):
         self.id = id
-        self.common_name = common_name
-        self.scientific_name = scientific_name
-        self.acronym = acronym
+        self.parent_id = parent_id
+        self.rank = rank
 
     def __repr__(self) -> str:
-        return "<Species {}>".format(self.id)
+        return '<Species:{}>'.format(self.id)
 
     def __str__(self) -> str:
-        if self.scientific_name:
-            return self.scientific_name
-        elif self.common_name:
-            return self.common_name
-        else:
-            return "species:{}".format(self.id)
+        return self.unique_name
+
+class SpeciesName(_Base):
+
+    __tablename__ = 'species_names'
+
+    id = Column(Integer, ForeignKey(
+        'species.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True)
+    cat = Column(String(32), primary_key=True)
+    name = Column(Text, primary_key=True)
+
+    def __init__(self, id:int, cat:str, name:str):
+        self.id = id
+        self.cat = cat
+        self.name = name
+
+    def __repr__(self):
+        return '<SpeciesName:{}:{} "{}">'.format(self.id, self.cat,
+                                                 self.name)
+
+    def __str__(self):
+        return self.name
+
+mapping = Table(
+    'genes2proteins', _Base.metadata,
+    Column('protein_id', BigInteger, ForeignKey(
+        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True),
+    Column('gene_id', BigInteger, ForeignKey(
+        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True),
+)
+
 
 class Gene(_Base):
 
@@ -88,9 +119,9 @@ class Gene(_Base):
     chromosome = Column(String(32))
     location = Column(String(64))
 
-    symbols = relationship('GeneSymbol', cascade='all', backref='gene')
-    names = relationship('GeneName', cascade='all', backref='gene')
-    keywords = relationship('GeneKeyword', cascade='all', backref='gene')
+    strings = relationship('GeneString', cascade='all', backref='gene')
+    refs = relationship('GeneRef', cascade='all', backref='gene')
+    proteins = relationship('Protein', secondary=mapping, backref='genes')
 
     def __init__(self, species_id:int, chromosome:str=None, location:str=None):
         self.species_id = species_id
@@ -115,9 +146,9 @@ class Protein(_Base):
     length = Column(Integer)
     mass = Column(Integer)
 
-    symbols = relationship('ProteinSymbol', cascade='all', backref='protein')
-    names = relationship('ProteinName', cascade='all', backref='protein')
-    keywords = relationship('ProteinKeyword', cascade='all', backref='protein')
+    strings = relationship('ProteinString', cascade='all', backref='protein')
+    refs = relationship('ProteinRef', cascade='all', backref='protein')
+    # genes = relationship('Gene', secondary=mapping, backref='proteins')
 
     def __init__(self, species_id:int, mass:int=None, length:int=None):
         self.species = species_id
@@ -130,178 +161,104 @@ class Protein(_Base):
     def __str__(self) -> str:
         return "protein:{}".format(self.id)
 
-gene_map = Table(
-    'db_accessions2gene_ids', _Base.metadata,
-    Column('namespace', String(8), primary_key=True),
-    Column('accession', String(64), primary_key=True),
-    Column('gene_id', BigInteger, ForeignKey(
-        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True),
-    ForeignKeyConstraint(
-        ['namespace', 'accession'],
-        ['databases.namespace', 'databases.accession'],
-        onupdate='CASCADE', ondelete='CASCADE'
-    )
-)
-
-protein_map = Table(
-    'db_accessions2protein_ids', _Base.metadata,
-    Column('namespace', String(8), primary_key=True),
-    Column('accession', String(64), primary_key=True),
-    Column('protein_id', BigInteger, ForeignKey(
-        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True),
-    ForeignKeyConstraint(
-        ['namespace', 'accession'],
-        ['databases.namespace', 'databases.accession'],
-        onupdate='CASCADE', ondelete='CASCADE'
-    )
-)
-
-class Database(_Base):
-
-    __tablename__ = 'databases'
+class EntityRef:
 
     namespace = Column(String(8), primary_key=True)
     accession = Column(String(64), primary_key=True)
-    version = Column(String(16))
     symbol = Column(String(64))
     name = Column(Text)
 
-    genes = relationship('Gene', secondary=gene_map, backref='records')
-    proteins = relationship('Protein', secondary=protein_map,
-                            backref='records')
-
-    def __init__(self, namespace:str, accession:str, version:str=None,
+    def __init__(self, namespace:str, accession:str,
                  symbol:str=None, name:str=None):
         self.namespace = namespace
         self.accession = accession
-        self.version = version
         self.symbol = symbol
         self.name = name
 
+    def __str__(self) -> str:
+        return "{}:{}".format(self.namespace, self.accession)
+
+
+class GeneRef(EntityRef, _Base):
+
+    __tablename__ = 'gene_refs'
+
+    id = Column(BigInteger, ForeignKey(
+        'genes.id', onupdate='CASCADE', ondelete='SET NULL'
+    ))
+
+    def __init__(self, namespace:str, accession:str,
+                 symbol:str=None, name:str=None, id:int=None):
+        super(GeneRef, self).__init__(namespace, accession,
+                                      symbol=symbol, name=name)
+        self.id = id
+
     def __repr__(self) -> str:
-        return "<Database {}:{}{}>".format(
-            self.namespace, self.accession,
-            ":{}".format(self.version) if self.version else ""
+        return "<GeneDBRef:{}:{}>".format(self.namespace, self.accession)
+
+
+class ProteinRef(EntityRef, _Base):
+
+    __tablename__ = 'protein_refs'
+
+    id = Column(BigInteger, ForeignKey(
+        'proteins.id', onupdate='CASCADE', ondelete='SET NULL'
+    ))
+
+    def __init__(self, namespace:str, accession:str,
+                 symbol:str=None, name:str=None, id:int=None):
+        super(ProteinRef, self).__init__(namespace, accession,
+                                         symbol=symbol, name=name)
+        self.id = id
+
+    def __repr__(self) -> str:
+        return "<ProteinDBRef:{}:{}>".format(self.namespace, self.accession)
+
+
+class GeneString(_Base):
+
+    __tablename__ = 'gene_strings'
+
+    id = Column(BigInteger, ForeignKey(
+        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True)
+    cat = Column(String(32), primary_key=True)
+    value = Column(Text, primary_key=True)
+
+    def __init__(self, id:int, cat:str, value:str):
+        self.id = id
+        self.cat = cat
+        self.value = value
+
+    def __repr__(self) -> str:
+        return '<GeneString:{}:{} "{}">'.format(
+            self.id, self.cat, self.value
         )
 
     def __str__(self) -> str:
-        return "{}:{}{}".format(
-            self.namespace, self.accession,
-            ":{}".format(self.version) if self.version else ""
+        return self.value
+
+
+class ProteinString(_Base):
+
+    __tablename__ = 'protein_strings'
+
+    id = Column(BigInteger, ForeignKey(
+        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True)
+    cat = Column(String(32), primary_key=True)
+    value = Column(Text, primary_key=True)
+
+    def __init__(self, id:int, cat:str, value:str):
+        self.id = id
+        self.cat = cat
+        self.value = value
+
+    def __repr__(self) -> str:
+        return '<ProteinString:{}:{} "{}">'.format(
+            self.id, self.cat, self.value
         )
 
-class GeneSymbol(_Base):
-
-    __tablename__ = 'gene_symbols'
-
-    gene_id = Column(BigInteger, ForeignKey(
-        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True)
-    symbol = Column(String(64), primary_key=True)
-
-    def __init__(self, gene_id:int, symbol:str):
-        self.gene_id = gene_id
-        self.symbol = symbol
-
-    def __repr__(self) -> str:
-        return "<GeneSymbol {} {}>".format(self.gene_id, self.symbol)
-
     def __str__(self) -> str:
-        return self.symbol
+        return self.value
 
-class ProteinSymbol(_Base):
-
-    __tablename__ = 'protein_symbols'
-
-    protein_id = Column(BigInteger, ForeignKey(
-        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True)
-    symbol = Column(String(64), primary_key=True)
-
-    def __init__(self, protein_id:int, symbol:str):
-        self.protein_id = protein_id
-        self.symbol = symbol
-
-    def __repr__(self) -> str:
-        return "<ProteinSymbol {} {}>".format(self.protein_id, self.symbol)
-
-    def __str__(self) -> str:
-        return self.symbol
-
-class GeneName(_Base):
-
-    __tablename__ = 'gene_names'
-
-    gene_id = Column(BigInteger, ForeignKey(
-        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True)
-    name = Column(Text, primary_key=True)
-
-    def __init__(self, gene_id:int, name:str):
-        self.gene_id = gene_id
-        self.name = name
-
-    def __repr__(self) -> str:
-        return "<GeneName {} \"{}\">".format(self.gene_id, self.name)
-
-    def __str__(self) -> str:
-        return self.name
-
-class ProteinName(_Base):
-
-    __tablename__ = 'protein_names'
-
-    protein_id = Column(BigInteger, ForeignKey(
-        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True)
-    name = Column(Text, primary_key=True)
-
-    def __init__(self, protein_id:int, name:str):
-        self.protein_id = protein_id
-        self.name = name
-
-    def __repr__(self) -> str:
-        return "<ProteinName {} \"{}\">".format(self.protein_id, self.name)
-
-    def __str__(self) -> str:
-        return self.keyword
-
-class GeneKeyword(_Base):
-
-    __tablename__ = 'gene_keywords'
-
-    gene_id = Column(BigInteger, ForeignKey(
-        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True)
-    keyword = Column(Text, primary_key=True)
-
-    def __init__(self, gene_id:int, keyword:str):
-        self.gene_id = gene_id
-        self.keyword = keyword
-
-    def __repr__(self) -> str:
-        return "<GeneKeyword {} \"{}\">".format(self.gene_id, self.keyword)
-
-    def __str__(self) -> str:
-        return self.keyword
-
-class ProteinKeyword(_Base):
-
-    __tablename__ = 'protein_keywords'
-
-    protein_id = Column(BigInteger, ForeignKey(
-        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
-    ), primary_key=True)
-    keyword = Column(Text, primary_key=True)
-
-    def __init__(self, protein_id:int, keyword:str):
-        self.protein_id = protein_id
-        self.keyword = keyword
-
-    def __repr__(self) -> str:
-        return "<ProteinKeyword {} \"{}\">".format(self.protein_id, self.keyword)
-
-    def __str__(self) -> str:
-        return self.keyword
