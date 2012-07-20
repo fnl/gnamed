@@ -102,6 +102,16 @@ TRANSLATE = {
 
     }
 
+# For duplicate xrefs in different Entrez Genes, list the reference(s)
+# that should not be used here (i.e., essentially entries where Entrez lists
+# two or more genes, but the official organism DB only has one gene)
+DUPLICATE_REFS = {
+    # {GI: {(NS, ACC), ...}, ...}
+    '444339': frozenset({(Namespace.xenbase, 'XB-GENEPAGE-6086059')}),
+}
+
+EMPTY_SET = frozenset()
+
 def isGeneSymbol(sym:str) -> bool:
     """
     Return ``true`` if `sym` fits into a GeneSymbol field and has no spaces.
@@ -167,12 +177,20 @@ class Parser(AbstractLoader):
 
         # separate existing DB links and new DB references
         if row.dbxrefs:
+            if row.id in DUPLICATE_REFS:
+                duplicates = DUPLICATE_REFS[row.id]
+            else:
+                duplicates = EMPTY_SET
+
             for xref in row.dbxrefs.split('|'):
                 db, acc = xref.split(':')
 
                 try:
                     if TRANSLATE[db]:
-                        record.addDBRef(DBRef(TRANSLATE[db], acc))
+                        db_ref = DBRef(TRANSLATE[db], acc)
+
+                        if db_ref not in duplicates:
+                            record.addDBRef(db_ref)
                 except KeyError:
                     logging.warn('unknown dbXref to "%s"', db)
 
