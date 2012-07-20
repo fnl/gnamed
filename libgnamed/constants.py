@@ -93,7 +93,6 @@ class Species:
     mouse = 10090 # M. musculus
     rat = 10116 # R. norvegus
     fly = 7227 # D. melanogaster
-    annanassae = 7217 # D. annanassae
     bakers_yeast = 4932 # S. cerevisiae
     fission_yeast = 4896 # S. pombe
     cress = 3702 # A. thaliana
@@ -108,7 +107,8 @@ SPECIES = frozenset({
     Species.mouse,
     Species.rat,
     Species.fly,
-    Species.annanassae,
+    # various Drosophila species in FlyBase:
+    46245, 7217, 7220, 7222, 7230, 7234, 7238, 7240, 7244, 7245, 7260,
     Species.bakers_yeast,
     Species.fission_yeast,
     Species.cress,
@@ -122,7 +122,8 @@ SPECIES_SPACES = {
     Namespace.hgnc: frozenset({Species.human}),
     Namespace.mgd: frozenset({Species.mouse}),
     Namespace.rgd: frozenset({Species.human, Species.rat}),
-    Namespace.flybase: frozenset({Species.fly, Species.annanassae}),
+    Namespace.flybase: frozenset({Species.fly, 46245, 7217, 7220, 7222, 7230,
+                                  7234, 7238, 7240, 7244, 7245, 7260}),
     Namespace.sgd: frozenset({Species.bakers_yeast}),
     Namespace.pombase: frozenset({Species.fission_yeast}),
     Namespace.tair: frozenset({Species.cress}),
