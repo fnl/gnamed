@@ -43,7 +43,7 @@ class AbstractRecord:
         locations and chromosomes, this data is handled directly in the parsers
         and is not added to the `Record` instances.
         """
-        self.species_id = species_id
+        self.species_id = int(species_id)
         self.symbol = symbol
         self.name = name
         self.strings = defaultdict(set)
