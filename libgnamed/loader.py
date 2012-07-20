@@ -77,6 +77,19 @@ class AbstractRecord:
     def addString(self, cat:str, value:str):
         self.strings[cat].add(value)
 
+    def _ensureSpecies(self, db_ref:DBRef):
+        assert SPECIES_SPACES[db_ref.namespace] == self.species_id,\
+            '{}:{} (taxid:{}) does not map to taxid:{}'.format(
+                db_ref.namespace, db_ref.accession,
+                SPECIES_SPACES[db_ref.namespace], self.species_id
+            )
+
+    def _checkSpecies(self, db_ref:DBRef):
+        if SPECIES_SPACES[db_ref.namespace] != self.species_id:
+            refs = ', '.join('{}:{}'.format(*key) for key in self.refs)
+            logging.warn('cross-species mapping for %s:%s to [%s]',
+                         db_ref.namespace, db_ref.namespace, refs)
+
 
 class GeneRecord(AbstractRecord):
 
@@ -89,12 +102,13 @@ class GeneRecord(AbstractRecord):
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in GENE_SPACES:
             if db_ref.namespace != Namespace.entrez:
-                assert SPECIES_SPACES[db_ref.namespace] == self.species_id,\
-                "DBRef {} not for tax:{}".format(db_ref, self.species_id)
+                self._ensureSpecies(db_ref)
 
             self.refs.add(db_ref)
         else:
-            # mappings may be cross-species!
+            if db_ref.namespace != Namespace.uniprot:
+                self._checkSpecies(db_ref)
+
             self.mappings.add(db_ref)
 
 
@@ -110,12 +124,13 @@ class ProteinRecord(AbstractRecord):
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in PROTEIN_SPACES:
             if db_ref.namespace != Namespace.uniprot:
-                assert SPECIES_SPACES[db_ref.namespace] == self.species_id, \
-                    "DBRef {} not for tax:{}".format(db_ref, self.species_id)
+                self._ensureSpecies(db_ref)
 
             self.refs.add(db_ref)
         else:
-            # mappings may be cross-species!
+            if db_ref.namespace != Namespace.entrez:
+                self._checkSpecies(db_ref)
+
             self.mappings.add(db_ref)
 
 
