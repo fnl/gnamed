@@ -277,11 +277,11 @@ class SpeedLoader(Parser):
         self._initBuffers()
 
     def _cleanup(self, stream:io.TextIOWrapper) -> int:
-        lines = super(SpeedLoader, self)._setup(stream)
+        super(SpeedLoader, self)._cleanup(stream)
         self._flush()
         self._conn.commit()
         self._conn.close()
-        return 0 # return num records!
+        return 0 # no new records
 
     def _loadRecord(self, db_key:DBRef, record:GeneRecord):
         """
@@ -305,11 +305,11 @@ class SpeedLoader(Parser):
             '\\N' if record.name is None else record.name, gid
         ))
 
-        for ns_acc in record.refs:
-            if ns_acc != db_key:
-                self._gene_refs.write('{}\t{}\t{}\t{}\t{}\n'.format(
-                    db_key.namespace, db_key.accession, '\\N', '\\N', gid
-                ))
+        for ns, acc in record.refs:
+            if ns != db_key.namespace or acc != db_key.accession:
+                self._gene_refs.write(
+                    '{}\t{}\t\\N\t\\N\t{}\n'.format(ns, acc, gid)
+                )
 
         for cat, values in record.strings.items():
             for val in values:

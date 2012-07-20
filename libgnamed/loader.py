@@ -77,12 +77,16 @@ class AbstractRecord:
     def addString(self, cat:str, value:str):
         self.strings[cat].add(value)
 
-    def _ensureSpecies(self, db_ref:DBRef):
-        assert SPECIES_SPACES[db_ref.namespace] == self.species_id,\
-            '{}:{} (taxid:{}) does not map to taxid:{}'.format(
-                db_ref.namespace, db_ref.accession,
-                SPECIES_SPACES[db_ref.namespace], self.species_id
-            )
+    def _sameSpecies(self, db_ref:DBRef) -> bool:
+        ns_species = SPECIES_SPACES[db_ref.namespace]
+
+        if ns_species != self.species_id:
+            msg = '{}:{} (species:{}) should not map to entities of species:{}'
+            logging.debug(msg.format(db_ref.namespace, db_ref.accession,
+                                     ns_species, self.species_id))
+            return False
+        else:
+            return True
 
     def _checkSpecies(self, db_ref:DBRef):
         if SPECIES_SPACES[db_ref.namespace] != self.species_id:
@@ -101,10 +105,9 @@ class GeneRecord(AbstractRecord):
 
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in GENE_SPACES:
-            if db_ref.namespace != Namespace.entrez:
-                self._ensureSpecies(db_ref)
-
-            self.refs.add(db_ref)
+            if db_ref.namespace == Namespace.entrez or \
+               self._sameSpecies(db_ref):
+                self.refs.add(db_ref)
         else:
             if db_ref.namespace != Namespace.uniprot:
                 self._checkSpecies(db_ref)
@@ -123,10 +126,9 @@ class ProteinRecord(AbstractRecord):
 
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in PROTEIN_SPACES:
-            if db_ref.namespace != Namespace.uniprot:
-                self._ensureSpecies(db_ref)
-
-            self.refs.add(db_ref)
+            if db_ref.namespace == Namespace.uniprot or \
+               self._sameSpecies(db_ref):
+                self.refs.add(db_ref)
         else:
             if db_ref.namespace != Namespace.entrez:
                 self._checkSpecies(db_ref)

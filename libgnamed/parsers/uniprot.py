@@ -531,7 +531,7 @@ class SpeedLoader(Parser):
         ))
 
         for ns, acc in record.refs:
-            if acc != db_key.accession or ns != db_key.namespace:
+            if ns != db_key.namespace or acc != db_key.accession:
                 self._protein_refs.write('{}\t{}\t\\N\t\\N\t{}\n'.format(
                     ns, acc, pid
                 ))
