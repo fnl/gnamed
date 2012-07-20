@@ -82,8 +82,10 @@ class AbstractRecord:
 
         if self.species_id not in ns_species:
             msg = '{}:{} (species:{}) should not map to entities of species:{}'
-            logging.warn(msg.format(db_ref.namespace, db_ref.accession,
-                         ','.join(ns_species), self.species_id))
+            logging.warn(msg.format(
+                db_ref.namespace, db_ref.accession,
+                ','.join(str(s) for s in ns_species), self.species_id
+            ))
             return False
         else:
             return True

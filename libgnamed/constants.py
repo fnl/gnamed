@@ -43,14 +43,14 @@ class Namespace:
     # organism-specific DBs
     hgnc = 'hgnc' # human
     mgd = 'mgi' # mouse
-    rgd = 'rgd' # human, rat
-    flybase = 'fly' # fly
-    sgd = 'sgd' # bakers yeast, S. cerevisiae
-    pombase = 'pb' # fission yeast, S. pombe
-    tair = 'tair' # cress
-    ecocyc = 'eco' # e.coli
-    wormbase = 'wb' # nematode
-    xenbase = 'xb' # frog (X. laevis and X. tropicalis)
+    rgd = 'rgd' # human and rat
+    flybase = 'fly' # (fruit) fly
+    sgd = 'sgd' # bakers yeast (S. cerevisiae)
+    pombase = 'pb' # fission yeast (S. pombe)
+    tair = 'tair' # (thale) cress (A. thaliana)
+    ecocyc = 'eco' # E. coli
+    wormbase = 'wb' # nematode (C. elegans)
+    xenbase = 'xb' # african and western frog (X. laevis and X. tropicalis)
 
 
 NAMESPACES = frozenset({
