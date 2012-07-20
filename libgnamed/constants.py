@@ -110,10 +110,14 @@ SPECIES = frozenset({
     # various Drosophila species in FlyBase:
     46245, 7217, 7220, 7222, 7230, 7234, 7238, 7240, 7244, 7245, 7260,
     Species.bakers_yeast,
+    # additional yeast strains in SGD:
+    559292,
     Species.fission_yeast,
     Species.cress,
     Species.e_coli,
     Species.nematode,
+    # various nematode species in WormBase:
+    6238, 31234, 135651, 860376, 54126, 6289, 6305, 6306, 6279
     Species.african_frog,
     Species.western_frog,
     })
@@ -124,10 +128,11 @@ SPECIES_SPACES = {
     Namespace.rgd: frozenset({Species.human, Species.rat}),
     Namespace.flybase: frozenset({Species.fly, 46245, 7217, 7220, 7222, 7230,
                                   7234, 7238, 7240, 7244, 7245, 7260}),
-    Namespace.sgd: frozenset({Species.bakers_yeast}),
+    Namespace.sgd: frozenset({Species.bakers_yeast, 559292}),
     Namespace.pombase: frozenset({Species.fission_yeast}),
     Namespace.tair: frozenset({Species.cress}),
     Namespace.ecocyc: frozenset({Species.e_coli}),
-    Namespace.wormbase: frozenset({Species.nematode}),
+    Namespace.wormbase: frozenset({Species.nematode, 6238, 31234, 135651,
+                                   860376, 54126, 6289, 6305, 6306, 6279}),
     Namespace.xenbase: frozenset({Species.western_frog, Species.african_frog}),
     }
