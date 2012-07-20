@@ -80,19 +80,20 @@ class AbstractRecord:
     def _sameSpecies(self, db_ref:DBRef) -> bool:
         ns_species = SPECIES_SPACES[db_ref.namespace]
 
-        if ns_species != self.species_id:
+        if self.species_id not in ns_species:
             msg = '{}:{} (species:{}) should not map to entities of species:{}'
-            logging.debug(msg.format(db_ref.namespace, db_ref.accession,
-                                     ns_species, self.species_id))
+            logging.warn(msg.format(db_ref.namespace, db_ref.accession,
+                         ','.join(ns_species), self.species_id))
             return False
         else:
             return True
 
     def _checkSpecies(self, db_ref:DBRef):
-        if SPECIES_SPACES[db_ref.namespace] != self.species_id:
+        if self.species_id not in SPECIES_SPACES[db_ref.namespace]:
             refs = ', '.join('{}:{}'.format(*key) for key in self.refs)
-            logging.warn('cross-species mapping for %s:%s to [%s]',
-                         db_ref.namespace, db_ref.namespace, refs)
+            logging.info('cross-species mapping for %s:%s to [%s] species:%s',
+                         db_ref.namespace, db_ref.accession, refs,
+                         self.species_id)
 
 
 class GeneRecord(AbstractRecord):

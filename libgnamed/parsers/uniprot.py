@@ -35,8 +35,11 @@ def translate_HGNC(items:list):
 
 def translate_MGI(items:list):
     assert items[0].startswith('MGI:'), items
-    yield DBRef(Namespace.hgnc, items[0].split(':')[1])
+    yield DBRef(Namespace.mgd, items[0].split(':')[1])
 
+
+def translate_PomBase(items:list):
+    yield DBRef(Namespace.pombase, items[0])
 
 def translate_RGD(items:list):
     yield DBRef(Namespace.rgd, items[0])
@@ -155,7 +158,7 @@ TRANSLATE = {
     'PIRSF': None,
     'PMAP-CutDB': None,
     'PMMA-2DPAGE': None,
-    'PomBase': None,
+    'PomBase': translate_PomBase,
     'PptaseDB': None,
     'PRIDE': None,
     'PRINTS': None,

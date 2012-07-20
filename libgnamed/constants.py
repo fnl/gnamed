@@ -43,13 +43,14 @@ class Namespace:
     # organism-specific DBs
     hgnc = 'hgnc' # human
     mgd = 'mgi' # mouse
-    rgd = 'rgd' # rat
+    rgd = 'rgd' # human, rat
     flybase = 'fly' # fly
-    sgd = 'sgd' # yeast
+    sgd = 'sgd' # bakers yeast, S. cerevisiae
+    pombase = 'pb' # fission yeast, S. pombe
     tair = 'tair' # cress
     ecocyc = 'eco' # e.coli
     wormbase = 'wb' # nematode
-    xenbase = 'xb' # frog
+    xenbase = 'xb' # frog (X. laevis and X. tropicalis)
 
 
 NAMESPACES = frozenset({
@@ -60,6 +61,7 @@ NAMESPACES = frozenset({
     Namespace.rgd,
     Namespace.flybase,
     Namespace.sgd,
+    Namespace.pombase,
     Namespace.tair,
     Namespace.ecocyc,
     Namespace.wormbase,
@@ -74,6 +76,7 @@ GENE_SPACES = frozenset({
     Namespace.rgd,
     Namespace.flybase,
     Namespace.sgd,
+    Namespace.pombase,
     Namespace.tair,
     Namespace.ecocyc,
     Namespace.wormbase,
@@ -86,15 +89,17 @@ PROTEIN_SPACES = frozenset({
 
 
 class Species:
-    human = 9606
-    mouse = 10090
-    rat = 10116
-    fly = 7227
-    yeast = 4932
-    cress = 3702
-    e_coli = 562
-    nematode = 6239
-    frog = 8355
+    human = 9606 # H. sapiens
+    mouse = 10090 # M. musculus
+    rat = 10116 # R. norvegus
+    fly = 7227 # D. melanogaster
+    bakers_yeast = 4932 # S. cerevisiae
+    fission_yeast = 4896 # S. pombe
+    cress = 3702 # A. thaliana
+    e_coli = 562 # E. coli
+    nematode = 6239 # C. elegans
+    african_frog = 8355 # X. laevis
+    western_frog = 8364 # X. tropicalis
 
 
 SPECIES = frozenset({
@@ -102,21 +107,24 @@ SPECIES = frozenset({
     Species.mouse,
     Species.rat,
     Species.fly,
-    Species.yeast,
+    Species.bakers_yeast,
+    Species.fission_yeast,
     Species.cress,
     Species.e_coli,
     Species.nematode,
-    Species.frog,
+    Species.african_frog,
+    Species.western_frog,
     })
 
 SPECIES_SPACES = {
-    Namespace.hgnc: Species.human,
-    Namespace.mgd: Species.mouse,
-    Namespace.rgd: Species.rat,
-    Namespace.flybase: Species.fly,
-    Namespace.sgd: Species.yeast,
-    Namespace.tair: Species.cress,
-    Namespace.ecocyc: Species.e_coli,
-    Namespace.wormbase: Species.nematode,
-    Namespace.xenbase: Species.frog,
+    Namespace.hgnc: frozenset({Species.human}),
+    Namespace.mgd: frozenset({Species.mouse}),
+    Namespace.rgd: frozenset({Species.human, Species.rat}),
+    Namespace.flybase: frozenset({Species.fly}),
+    Namespace.sgd: frozenset({Species.bakers_yeast}),
+    Namespace.pombase: frozenset({Species.fission_yeast}),
+    Namespace.tair: frozenset({Species.cress}),
+    Namespace.ecocyc: frozenset({Species.e_coli}),
+    Namespace.wormbase: frozenset({Species.nematode}),
+    Namespace.xenbase: frozenset({Species.western_frog, Species.african_frog}),
     }
