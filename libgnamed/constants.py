@@ -117,7 +117,7 @@ SPECIES = frozenset({
     Species.e_coli,
     Species.nematode,
     # various nematode species in WormBase:
-    6238, 31234, 135651, 860376, 54126, 6289, 6305, 6306, 6279
+    6238, 31234, 135651, 860376, 54126, 6289, 6305, 6306, 6279,
     Species.african_frog,
     Species.western_frog,
     })
