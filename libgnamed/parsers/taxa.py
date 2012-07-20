@@ -24,16 +24,18 @@ class Parser(AbstractParser):
 
     def _setup(self, file:io.TextIOWrapper) -> int:
         lines = super(Parser, self)._setup(file)
-        self._parsing_names = True if hasattr(self, '_taxa_map') else False
+        self._fileno = self._fileno + 1 if hasattr(self, '_fileno') else 1
         self._on_hold = defaultdict(list)
         self._loaded = set()
 
-        if not self._parsing_names:
+        if self._fileno == 1:
             self._taxa_map = dict()
             self._root_found = False
             logging.debug('parsing nodes')
-        else:
+        elif self._fileno == 2:
             logging.debug('parsing names')
+        else:
+            logging.debug('parsing merged')
 
         return lines
 
@@ -51,7 +53,7 @@ class Parser(AbstractParser):
     def _parse(self, line:str) -> int:
         items = [i.strip() for i in line.split('|')]
 
-        if self._parsing_names:
+        if self._fileno == 2:
             assert len(items) == 5, line
             species_id = int(items[0])
 
@@ -92,7 +94,7 @@ class Parser(AbstractParser):
             self.record.names.append(
                 SpeciesName(species_id, items[3], items[1])
             )
-        else:
+        elif self._fileno == 1:
             assert len(items) == 14, line
 
             if not self._root_found and items[0] == items[1]:
@@ -103,6 +105,14 @@ class Parser(AbstractParser):
                 items[1] = int(items[1])
 
             self._taxa_map[int(items[0])] = (items[1], items[2])
+        elif self._fileno == 3:
+            assert len(items) == 3, line
+            species_id, parent_id = int(items[0]), int(items[1])
+            self.record = Species(species_id, parent_id, 'merged')
+            self.record.unique_name = 'species:{}'.format(parent_id)
+            self.session.add(self.record)
+        else:
+            raise RuntimeError('unexpected file is being parsed')
 
         return 1
 
