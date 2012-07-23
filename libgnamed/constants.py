@@ -34,6 +34,13 @@ REPOSITORIES = {
             , 'hgnc.csv', 'ISO-8859-1')],
         'description': "Human Genome Nomenclature Consortium (genenames.org)",
         },
+    'rgd': {
+        'url': 'ftp://rgd.mcw.edu/pub/data_release/',
+        'resources': [
+            ('GENES_RAT.txt', 'GENES_RAT.txt', 'UTF-8'),
+        ],
+        'description': "Rat Genome Database GENE files",
+    },
     }
 
 class Namespace:
