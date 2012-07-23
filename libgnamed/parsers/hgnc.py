@@ -12,29 +12,32 @@ from collections import namedtuple
 from shlex import shlex
 
 from libgnamed.constants import Species, Namespace
-from libgnamed.loader import Record, AbstractGeneParser
+from libgnamed.loader import GeneRecord, AbstractLoader, DBRef
 
 Line = namedtuple('Line', [
     'id', 'symbol', 'name',
     'previous_symbols', 'previous_names', 'synonyms', 'name_synonyms',
     'location', 'pmids',
     'gene_family_symbols', 'gene_family_names',
-    Namespace.entrez, Namespace.ensemble, Namespace.mgd,
+    Namespace.entrez, 'Namespace_ensemble', Namespace.mgd,
     Namespace.uniprot, Namespace.rgd
 ])
 
-LINKS = [Namespace.entrez, Namespace.ensemble, Namespace.mgd,
-         Namespace.uniprot, Namespace.rgd]
-FIX_ACCESSION = frozenset([Namespace.mgd, Namespace.rgd])
+DB_REFS = [Namespace.entrez,
+         Namespace.uniprot]
+FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 
-class Parser(AbstractGeneParser):
+class Parser(AbstractLoader):
     """
     A parser for HGNC (genenames.org) records.
+
+    Implements the `AbstractParser._parse` method.
     """
 
     def _setup(self, stream:io.TextIOWrapper):
+        lines = super(Parser, self)._setup(stream)
         logging.debug("file header:\n%s", stream.readline().strip())
-        return 1
+        return lines + 1
 
     def _parse(self, line:str):
         items = [i.strip() for i in line.split('\t')]
@@ -48,29 +51,32 @@ class Parser(AbstractGeneParser):
             items.append('')
 
         row = Line._make(items)
-        record = Record(Namespace.hgnc, row.id, Species.human,
-                        symbol=row.symbol, name=row.name)
+        record = GeneRecord(Species.human, symbol=row.symbol, name=row.name,
+                            location=row.location if row.location else None)
 
         # link DB references
-        for ns in LINKS:
+        for ns in DB_REFS:
             acc = getattr(row, ns)
 
             if acc:
                 if ns in FIX_ACCESSION:
                     acc = acc[acc.find(":") + 1:]
 
-                record.links.add((ns, acc))
+                record.addDBRef(DBRef(ns, acc))
 
         # parse symbol strings
         for field in (row.previous_symbols, row.synonyms):
-            record.symbols.update(Parser._parseCD(field))
+            if field:
+                map(record.addSymbol, Parser._parseCD(field))
 
         # parse name strings
         for field in (row.previous_names, row.name_synonyms):
-            record.names.update(Parser._parseQCD(field))
+            if field:
+                map(record.addName, Parser._parseQCD(field))
 
         # parse keywords strings
-        record.keywords.update(Parser._parseCD(row.gene_family_symbols))
+        if row.gene_family_symbols:
+            map(record.addKeyword, Parser._parseCD(row.gene_family_symbols))
 
         for name in Parser._parseQCD(row.gene_family_names):
             for subname in name.split(' / '):
@@ -78,13 +84,14 @@ class Parser(AbstractGeneParser):
                     subsubname = subsubname.strip()
 
                     if subsubname.lower() not in ('other', '"other"'):
-                        record.keywords.add(subsubname)
+                        record.addKeyword(subsubname)
 
-        self.loadRecord(record, location=row.location)
+        self._loadRecord(DBRef(Namespace.hgnc, row.id), record)
         return 1
 
     def _cleanup(self, file:io.TextIOWrapper):
-        return 0
+        records = super(Parser, self)._cleanup(file)
+        return records
 
     @staticmethod
     def _parseQCD(content:str) -> shlex:
