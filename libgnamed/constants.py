@@ -115,6 +115,8 @@ SPECIES = frozenset({
     Species.fission_yeast,
     Species.cress,
     Species.e_coli,
+    # e. coli strain in EcoCyc
+    511145,
     Species.nematode,
     # various nematode species in WormBase:
     6238, 31234, 135651, 860376, 54126, 6289, 6305, 6306, 6279,
@@ -131,7 +133,7 @@ SPECIES_SPACES = {
     Namespace.sgd: frozenset({Species.bakers_yeast, 559292}),
     Namespace.pombase: frozenset({Species.fission_yeast}),
     Namespace.tair: frozenset({Species.cress}),
-    Namespace.ecocyc: frozenset({Species.e_coli}),
+    Namespace.ecocyc: frozenset({Species.e_coli, 511145}),
     Namespace.wormbase: frozenset({Species.nematode, 6238, 31234, 135651,
                                    860376, 54126, 6289, 6305, 6306, 6279}),
     Namespace.xenbase: frozenset({Species.western_frog, Species.african_frog}),
