@@ -263,13 +263,13 @@ class Parser(AbstractLoader):
             # ensure a species ID has to be set later:
             #noinspection PyTypeChecker
             self.record = ProteinRecord(-1, length=self._length)
-            self.db_key = DBRef(Namespace.uniprot, accessions[0])
+            self.db_key = DBRef(Namespace.uniprot, accessions.pop(0))
 
             if self._id:
                 #noinspection PyTypeChecker
                 self.record.addString("identifier", self._id)
 
-        self.record.addDBRef(DBRef(Namespace.uniprot, accessions.pop(0)))
+            self.record.addDBRef(self.db_key)
 
         for acc in accessions:
             self.record.addString("accession", acc)
