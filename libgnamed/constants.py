@@ -100,6 +100,7 @@ class Species:
     nematode = 6239 # C. elegans
     african_frog = 8355 # X. laevis
     western_frog = 8364 # X. tropicalis
+    unidentified = 32644 # unknown/unclassified species
 
 
 SPECIES = frozenset({

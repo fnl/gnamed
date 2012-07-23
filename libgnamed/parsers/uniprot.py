@@ -9,9 +9,45 @@ import re
 import io
 import logging
 
-from libgnamed.constants import Namespace
+from libgnamed.constants import Namespace, Species
 from libgnamed.loader import ProteinRecord, AbstractLoader, DBRef
 from sqlalchemy.schema import Sequence
+
+# Species in OX lines mapped to NCBI_TaxID values that do not exist
+# will be mapped to Species.unidentified
+WRONG_SPECIES_MAPPINGS = frozenset({
+    101621,
+    1054147,
+    1094619,
+    1136501,
+    179404,
+    2196,
+    262966,
+    292145,
+    30256,
+    31509,
+    31697,
+    31758,
+    34177,
+    35272,
+    36397,
+    37552,
+    37555,
+    391167,
+    40036,
+    40257,
+    489502,
+    497361,
+    51796,
+    587201,
+    587202,
+    587203,
+    61282,
+    70702,
+    70735,
+    70897,
+    88207,
+})
 
 def translate_BioCyc(items:list):
     ns, acc = items[0].split(':')
@@ -389,7 +425,14 @@ class Parser(AbstractLoader):
         species = Parser.OX_RE.match(line).group('species')
 
         if species:
-            self.record.species_id = int(species)
+            species = int(species)
+
+            if species in WRONG_SPECIES_MAPPINGS:
+                logging.debug('wrong TaxID for %s (%s)',
+                              self.db_key.accession, self._id)
+                species = Species.unidentified
+
+            self.record.species_id = species
 
         return 0
 

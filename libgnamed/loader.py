@@ -93,9 +93,9 @@ class AbstractRecord:
     def _checkSpecies(self, db_ref:DBRef):
         if self.species_id not in SPECIES_SPACES[db_ref.namespace]:
             refs = ', '.join('{}:{}'.format(*key) for key in self.refs)
-            logging.info('cross-species mapping for %s:%s to [%s] species:%s',
-                         db_ref.namespace, db_ref.accession, refs,
-                         self.species_id)
+            logging.debug('cross-species mapping for %s:%s to [%s] species:%s',
+                          db_ref.namespace, db_ref.accession, refs,
+                          self.species_id)
 
 
 class GeneRecord(AbstractRecord):
