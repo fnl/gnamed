@@ -343,6 +343,10 @@ class Parser(AbstractLoader):
         assert name[-1] == ';', name
         name = name[:-1]
 
+        # clean names ending with a backslash in TrEMBL
+        while name.endswith('\\'):
+            name = name[:-1]
+
         if subcat == "Short" and len(name) > 16 and ' ' in name:
             subcat = "Full"
 
