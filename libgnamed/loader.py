@@ -257,10 +257,12 @@ class AbstractLoader(AbstractParser):
         elif len(entities) > 1:
             # raise an error when more than one entity was found
             raise RuntimeError(
-                "{} {}s ({}) found for {}:{} {}".format(
+                "{} {}s ({}) found for {}:{} ({})".format(
                     len(entities), entity_name,
                     ", ".join(str(e.id) for e in entities), db_key.namespace,
-                    db_key.accession, record.refs
+                    db_key.accession, ', '.join(
+                        '{}:{}'.format(r.namespace, r.accession) for r in record.refs
+                    )
                 )
             )
 
