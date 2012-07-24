@@ -27,6 +27,15 @@ DB_REFS = [Namespace.entrez,
          Namespace.uniprot]
 FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 
+# Mapping of references to other DBs that are not correct to their
+# correct values
+WRONG_DB_REFS = {
+    # HGNC:18906 maps to KRTAP2-4, but should be -3; Entrez has the correct
+    # mapping back to the HGNC record for KRTAP2-3:
+    DBRef(Namespace.entrez, '730755'): DBRef(Namespace.entrez, '85295'),
+    #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
+    }
+
 class Parser(AbstractLoader):
     """
     A parser for HGNC (genenames.org) records.
@@ -63,7 +72,16 @@ class Parser(AbstractLoader):
                 if ns in FIX_ACCESSION:
                     acc = acc[acc.find(":") + 1:]
 
-                record.addDBRef(DBRef(ns, acc))
+                ref = DBRef(ns, acc)
+
+                if ref in WRONG_DB_REFS:
+                    new_ref = WRONG_DB_REFS[ref]
+                    logging.info('correcting wrong ref %s->%s',
+                                 '{}:{}'.format(*ref),
+                                 '{}:{}'.format(*new_ref))
+                    ref = new_ref
+
+                record.addDBRef(ref)
 
         # parse symbol strings
         for field in (row.previous_symbols, row.synonyms):
