@@ -227,6 +227,11 @@ class AbstractLoader(AbstractParser):
             ns_list, acc_list = zip(*missing_db_keys)
 
             # load *everything* relevant to the record in one large query
+            # SELECT * FROM <entity>_refs
+            #     LEFT OUTER JOIN <entity>s USING (id)
+            #     LEFT OUTER JOIN <entity>_strings USING (id)
+            #     WHERE <entity>_refs.namespace IN (...)
+            #         AND <entity>_refs.accession IN (...);
             for db_ref in self.session.query(EntityRef).options(
                 joinedload(getattr(EntityRef, entity_name)),
                 joinedload(entity_name + '.strings'),
@@ -281,7 +286,11 @@ class AbstractLoader(AbstractParser):
 
         # create all missing EntityRef objects
         for key in missing_db_keys:
-            logging.info('creating new reference object %s:%s', *key)
+            if key.namespace == db_key.namespace:
+                logging.debug('creating new reference object %s:%s', *key)
+            else:
+                logging.info('creating new reference object %s:%s', *key)
+
             db_ref = EntityRef(*key)
             setattr(db_ref, entity_name, entity)
             self.session.add(db_ref)
