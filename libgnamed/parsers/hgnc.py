@@ -27,15 +27,6 @@ DB_REFS = [Namespace.entrez,
          Namespace.uniprot]
 FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 
-# Mapping of references to other DBs that are no longer correct to their
-# actual, new values
-WRONG_DB_REFS = {
-    DBRef(Namespace.entrez, '276721'): DBRef(Namespace.entrez, '100422411'),
-    DBRef(Namespace.entrez, '446205'): DBRef(Namespace.entrez, '646086'),
-    DBRef(Namespace.entrez, '100033412'): DBRef(Namespace.entrez, '100420926'),
-    #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
-    }
-
 class Parser(AbstractLoader):
     """
     A parser for HGNC (genenames.org) records.
@@ -72,16 +63,7 @@ class Parser(AbstractLoader):
                 if ns in FIX_ACCESSION:
                     acc = acc[acc.find(":") + 1:]
 
-                ref = DBRef(ns, acc)
-
-                if ref in WRONG_DB_REFS:
-                    new_ref = WRONG_DB_REFS[ref]
-                    logging.info('correcting outdated ref %s->%s',
-                                 '{}:{}'.format(*ref),
-                                 '{}:{}'.format(*new_ref))
-                    ref = new_ref
-
-                record.addDBRef(ref)
+                record.addDBRef(DBRef(ns, acc))
 
         # parse symbol strings
         for field in (row.previous_symbols, row.synonyms):
