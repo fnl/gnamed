@@ -307,7 +307,6 @@ class AbstractLoader(AbstractParser):
         if record.mappings:
             known = dict()
             ns_list, acc_list = zip(*record.mappings)
-            logging.warn('parsing mappings %s', record.mappings)
 
             # SELECT * FROM <other>_refs
             #     LEFT OUTER JOIN genes2proteins
