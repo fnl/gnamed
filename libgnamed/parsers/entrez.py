@@ -230,7 +230,7 @@ class Parser(AbstractLoader):
                         record.addName(name)
 
         # parsed keyword strings
-        if row.type_of_gene and row.type_of_gene != 'other':
+        if row.type_of_gene and row.type_of_gene not in ('other', 'unknown'):
             record.addKeyword(row.type_of_gene)
 
         self._loadRecord(db_key, record)
