@@ -30,8 +30,9 @@ FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 # Mapping of references to other DBs that are no longer correct to their
 # actual, new values
 WRONG_DB_REFS = {
-    DBRef(Namespace.entrez, '276721'): DBRef(Namespace.entrez, '100422411')
-}
+    DBRef(Namespace.entrez, '276721'): DBRef(Namespace.entrez, '100422411'),
+    DBRef(Namespace.entrez, '446205'): DBRef(Namespace.entrez, '646086'),
+    }
 
 class Parser(AbstractLoader):
     """
@@ -72,8 +73,12 @@ class Parser(AbstractLoader):
                 ref = DBRef(ns, acc)
 
                 if ref in WRONG_DB_REFS:
-                    ref = WRONG_DB_REFS[ref]
-                
+                    new_ref = WRONG_DB_REFS[ref]
+                    logging.info('correcting outdated ref {}:{}->{}:{}',
+                                 ref.namespace, ref.accession,
+                                 new_ref.namespace, new_ref.accession)
+                    ref = new_ref
+
                 record.addDBRef(ref)
 
         # parse symbol strings
