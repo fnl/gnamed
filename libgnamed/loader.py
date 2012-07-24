@@ -13,11 +13,12 @@ from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import and_
 from sys import getdefaultencoding
 
-from libgnamed.orm import \
-    Gene, Protein, GeneRef, ProteinRef, GeneString, ProteinString
+from libgnamed.orm import\
+    Gene, Protein, GeneRef, ProteinRef, GeneString, ProteinString, mapping
 from libgnamed.parsers import AbstractParser
 
 DBRef = namedtuple('DBRef', ['namespace', 'accession'])
+
 
 class AbstractRecord:
     """
@@ -99,7 +100,6 @@ class AbstractRecord:
 
 
 class GeneRecord(AbstractRecord):
-
     def __init__(self, species_id:int, symbol:str=None, name:str=None,
                  chromosome:str=None, location:str=None):
         super(GeneRecord, self).__init__(species_id, symbol=symbol, name=name)
@@ -108,7 +108,7 @@ class GeneRecord(AbstractRecord):
 
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in GENE_SPACES:
-            if db_ref.namespace == Namespace.entrez or \
+            if db_ref.namespace == Namespace.entrez or\
                self._sameSpecies(db_ref):
                 self.refs.add(db_ref)
         else:
@@ -119,7 +119,6 @@ class GeneRecord(AbstractRecord):
 
 
 class ProteinRecord(AbstractRecord):
-
     def __init__(self, species_id:int, symbol:str=None, name:str=None,
                  length:int=None, mass:int=None):
         super(ProteinRecord, self).__init__(species_id,
@@ -129,7 +128,7 @@ class ProteinRecord(AbstractRecord):
 
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in PROTEIN_SPACES:
-            if db_ref.namespace == Namespace.uniprot or \
+            if db_ref.namespace == Namespace.uniprot or\
                self._sameSpecies(db_ref):
                 self.refs.add(db_ref)
         else:
@@ -206,14 +205,22 @@ class AbstractLoader(AbstractParser):
         # set the object types according to the record type
         if isinstance(record, GeneRecord):
             EntityRef = GeneRef
+            OtherRef = ProteinRef
             Entity = Gene
             EntityString = GeneString
+            entity_col = mapping.c.gene_id
+            other_col = mapping.c.protein_id
             entity_name = 'gene'
+            other_name = 'protein'
         else:
             EntityRef = ProteinRef
+            OtherRef = GeneRef
             Entity = Protein
             EntityString = ProteinString
+            entity_col = mapping.c.protein_id
+            other_col = mapping.c.gene_id
             entity_name = 'protein'
+            other_name = 'gene'
 
         if missing_db_keys:
             # split the keys into two lists of namespaces and accessions
@@ -261,7 +268,8 @@ class AbstractLoader(AbstractParser):
                     len(entities), entity_name,
                     ", ".join(str(e.id) for e in entities), db_key.namespace,
                     db_key.accession, ', '.join(
-                        '{}:{}'.format(r.namespace, r.accession) for r in record.refs
+                        '{}:{}'.format(r.namespace,
+                                       r.accession) for r in record.refs
                     )
                 )
             )
@@ -282,7 +290,7 @@ class AbstractLoader(AbstractParser):
                 db_ref.symbol = record.symbol
                 db_ref.name = record.name
 
-        # finally, update the entity with any new strings
+        # update the entity with any new strings
         known = defaultdict(set)
 
         for s in entity.strings:
@@ -291,4 +299,39 @@ class AbstractLoader(AbstractParser):
         for cat in record.strings:
             for value in record.strings[cat].difference(known[cat]):
                 logging.debug('adding %s="%s" to %s', cat, value, entity)
-                entity.strings.append(EntityString(entity.id, cat, value))
+                obj = EntityString(entity.id, cat, value)
+                entity.strings.append(obj)
+                self.session.add(obj)
+
+        # update the entity mappings (genes2proteins)
+        if record.mappings:
+            known = dict()
+            ns_list, acc_list = zip(*record.mappings)
+            logging.warn('parsing mappings %s', record.mappings)
+
+            # SELECT * FROM <other>_refs
+            #     LEFT OUTER JOIN genes2proteins
+            #         ON <other>_refs.id = genes2proteins.<this>_id
+            #     WHERE <other>_refs.namespace IN (...)
+            #         AND <other>_refs.accession IN (...);
+            for ref, this_id in self.session.query(OtherRef,
+                                                   entity_col).outerjoin(
+                mapping, OtherRef.id == other_col).filter(
+                and_(OtherRef.namespace.in_(ns_list),
+                     OtherRef.accession.in_(acc_list))):
+                if DBRef(ref.namespace, ref.accession) in record.mappings:
+                    if ref.id not in known:
+                        known[ref.id] = {this_id, }
+                    else:
+                        known[ref.id].add(this_id)
+
+            for other_id, this_ids in known.items():
+                if entity.id not in this_ids:
+                    logging.debug('adding mapping {}:{}->{}:{}'.format(
+                        entity_name, entity.id, other_name, other_id
+                    ))
+                    self.session.execute(mapping.insert().values(**{
+                        '{}_id'.format(entity_name): entity.id,
+                        '{}_id'.format(other_name): other_id
+                    }))
+
