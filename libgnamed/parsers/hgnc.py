@@ -32,6 +32,8 @@ FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 WRONG_DB_REFS = {
     DBRef(Namespace.entrez, '276721'): DBRef(Namespace.entrez, '100422411'),
     DBRef(Namespace.entrez, '446205'): DBRef(Namespace.entrez, '646086'),
+    DBRef(Namespace.entrez, '100033412'): DBRef(Namespace.entrez, '100420926'),
+    #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
     }
 
 class Parser(AbstractLoader):
@@ -74,9 +76,9 @@ class Parser(AbstractLoader):
 
                 if ref in WRONG_DB_REFS:
                     new_ref = WRONG_DB_REFS[ref]
-                    logging.info('correcting outdated ref {}:{}->{}:{}',
-                                 ref.namespace, ref.accession,
-                                 new_ref.namespace, new_ref.accession)
+                    logging.info('correcting outdated ref %s->%s',
+                                 '{}:{}'.format(*ref),
+                                 '{}:{}'.format(*new_ref))
                     ref = new_ref
 
                 record.addDBRef(ref)
