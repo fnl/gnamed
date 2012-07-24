@@ -53,6 +53,7 @@ class Parser(AbstractLoader):
         row = Line._make(items)
         record = GeneRecord(Species.human, symbol=row.symbol, name=row.name,
                             location=row.location if row.location else None)
+        record.addDBRef(DBRef(Namespace.hgnc, row.id))
 
         # link DB references
         for ns in DB_REFS:
