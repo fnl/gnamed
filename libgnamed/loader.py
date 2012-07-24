@@ -257,7 +257,8 @@ class AbstractLoader(AbstractParser):
 
         # create the entity or ensure we have exactly one
         if not entities:
-            logging.debug('creating a new %s entity', entity_name)
+            logging.info('creating a new %s entity for %s:%s',
+                         entity_name, *db_key)
             entity = Entity(record.species_id)
             self.session.add(entity)
             addEntity(entity)
@@ -280,7 +281,7 @@ class AbstractLoader(AbstractParser):
 
         # create all missing EntityRef objects
         for key in missing_db_keys:
-            logging.debug('creating new reference object %s:%s', *key)
+            logging.info('creating new reference object %s:%s', *key)
             db_ref = EntityRef(*key)
             setattr(db_ref, entity_name, entity)
             self.session.add(db_ref)
