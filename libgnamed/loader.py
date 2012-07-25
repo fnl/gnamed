@@ -239,7 +239,6 @@ class AbstractLoader(AbstractParser):
                               EntityRef.accession.in_(acc_list))):
                 key = DBRef(db_ref.namespace, db_ref.accession)
                 self.db_refs[key] = db_ref
-                #raise RuntimeError('break')
 
                 if key in missing_db_keys:
                     missing_db_keys.remove(key)
