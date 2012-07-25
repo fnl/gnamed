@@ -48,6 +48,8 @@ WRONG_DB_REFS = {
     DBRef(Namespace.entrez, '100129250'): DBRef(Namespace.entrez, '548324'),
     # HGNC:32000
     DBRef(Namespace.entrez, '100288142'): DBRef(Namespace.entrez, '641590'),
+    # HGNC:32062
+    DBRef(Namespace.entrez, '100506642'): DBRef(Namespace.entrez, '574432'),
     # HGNC:32078 and 32077 have the links to Entrez convoluted/inverted;
     # Entrez has the correct mappings for the two genes:
     DBRef(Namespace.entrez, '574445'): DBRef(Namespace.entrez, '574446'),
@@ -83,11 +85,14 @@ class Parser(AbstractLoader):
             entrez = self.session.query(GeneRef).filter(
                 GeneRef.namespace == Namespace.entrez,
                 GeneRef.accession == '648809').one()
-            hgnc.id = entrez.id
-            logging.info(
-                'correcting wrong link of %s:31739 from %s:388159 to %s:648809'
-                , Namespace.hgnc, Namespace.entrez, Namespace.entrez)
-            self.session.flush()
+
+            if hgnc.id != entrez.id:
+                hgnc.id = entrez.id
+                logging.info(
+                    'correcting wrong link of %s:31739 from %s:388159 to %s:648809'
+                    , Namespace.hgnc, Namespace.entrez, Namespace.entrez)
+                self.session.commit() # commit, because otherwise multiple
+                # parsers would hang here waiting for each others commit
         except NoResultFound:
             pass
 
