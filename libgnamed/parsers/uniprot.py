@@ -461,10 +461,10 @@ class Parser(AbstractLoader):
     KW_RE = re.compile('\s+(?P<keyword>[^;]+)(?:;|\.$)')
 
     def _parseKW(self, line:str):
-        map(self.record.addKeyword, [
-            kw for kw in Parser.KW_RE.findall(line)
-            if kw != 'Complete proteome'
-        ])
+        for kwd in Parser.KW_RE.findall(line):
+            if kwd != 'Complete proteome':
+                self.record.addKeyword(kwd)
+
         return 0
 
     SQ_RE = re.compile(
