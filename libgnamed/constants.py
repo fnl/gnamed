@@ -39,7 +39,16 @@ REPOSITORIES = {
         'resources': [
             ('GENES_RAT.txt', 'GENES_RAT.txt', 'UTF-8'),
         ],
-        'description': "Rat Genome Database GENE files",
+        'description': "Rat Genome Database rat GENE text file",
+    },
+    'mgd': {
+        'url': 'ftp://ftp.informatics.jax.org/pub/reports/',
+        'resources': [
+            ('MRK_List1.rpt', 'MRK_List1.rpt', 'UTF-8'),
+            ('MRK_SwissProt_TrEMBL.rpt', 'MRK_SwissProt_TrEMBL.rpt', 'UTF-8'),
+            ('MGI_EntrezGene.rpt', 'MGI_EntrezGene.rpt', 'UTF-8'),
+        ],
+        'description': 'Mouse Geneome Datbase text files',
     },
     }
 
