@@ -31,6 +31,8 @@ FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 # correct values
 WRONG_DB_REFS = {
     #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
+    # HGNC:9135; and again Entrez seems to have the valid mapping:
+    DBRef(Namespace.entrez, '100132832'): DBRef(Namespace.entrez, '5391'),
     # HGNC:10300; and again Entrez seems to have the valid mapping:
     DBRef(Namespace.entrez, '100288252'): DBRef(Namespace.entrez, '54030'),
     # HGNC:18906 maps to KRTAP2-4, but should map to -3; Entrez has the correct
