@@ -34,6 +34,8 @@ WRONG_DB_REFS = {
     # HGNC:18906 maps to KRTAP2-4, but should map to -3; Entrez has the correct
     # mapping back to HGNC:
     DBRef(Namespace.entrez, '730755'): DBRef(Namespace.entrez, '85295'),
+    # HGNC:31023; and again Entrez seems to have the valid mapping:
+    DBRef(Namespace.entrez, '100287637'): DBRef(Namespace.entrez, '654504'),
     # HGNC:31420; and again Entrez seems to have the valid mapping:
     DBRef(Namespace.entrez, '100129250'): DBRef(Namespace.entrez, '548324'),
     # HGNC:32000; and again Entrez seems to have the valid mapping:
