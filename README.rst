@@ -19,33 +19,34 @@ Entity Relationship Model
                      <mapping>
 
 Species (species)
-  =id:INT, parent_id:FK(Species), +rank:VARCHAR(32),
-  +unique_name:TEXT, genbank_name:TEXT
+  ``=``**id**:INT, **parent_id**:FK(Species), ``+``**rank**:VARCHAR(32),
+  ``+``**unique_name**:TEXT, **genbank_name**:TEXT
 
 SpeciesName (species_names)
-  =id:FK(Species), =cat:VARCHAR(32), *name:TEXT
+  ``=``**id**:FK(Species), ``=``**cat**:VARCHAR(32), ``=``**name**:TEXT
 
 Gene (genes)
-  =id:BIGINT, +species_id:FK_Species, chromosome:VARCHAR(32),
-  location:VARCHAR(64)
+  ``=``**id**:BIGINT, ``+``**species_id**:FK_Species,
+  **chromosome**:VARCHAR(32), **location**:VARCHAR(64)
 
 Protein (proteins)
-  =id:BIGINT, +species_id:FK_Species, mass:INT, length:INT
+  ``=``**id**:BIGINT, ``+``**species_id**:FK_Species,
+  **mass**:INT, **length**:INT
 
 mapping (genes2proteins)
-  =gene_id:FK(Gene), =protein_id:FK(Protein)
+  ``=``**gene_id**:FK(Gene), ``=``**protein_id**:FK(Protein)
 
-EntityRef (entity_refs)
-  =namespace:VARCHAR(8), =accession:VARCHAR(64),
-  symbol:VARCHAR(64), name:TEXT, id:FK(<Entity>)
+``Entity``Ref (``entity``_refs)
+  ``=``**namespace**:VARCHAR(8), ``=``**accession**:VARCHAR(64),
+  **symbol**:VARCHAR(64), **name**:TEXT, **id**:FK(``Entity``)
 
-EntityString (entity_strings)
-  =id:FK(Species), =cat:VARCHAR(32), =value:TEXT
+``Entity``String (``entity``_strings)
+  ``=``**id**:FK(``Entity``), ``=``**cat**:VARCHAR(32), ``=``**value**:TEXT
 
-- [=] (Compound) Primary Key
-- [+] NOT NULL
-- [Entity] can be either "Gene" or "Protein"
-- [entity] can be either "gene" or "protein"
+- ``=`` (Compound) Primary Key
+- ``+`` NOT NULL
+- ``Entity`` can be either "Gene" or "Protein"
+- ``entity`` can be either "gene" or "protein"
 
 Requirements
 ============
