@@ -13,6 +13,8 @@ from shlex import shlex
 
 from libgnamed.constants import Species, Namespace
 from libgnamed.loader import GeneRecord, AbstractLoader, DBRef
+from libgnamed.orm import GeneRef
+from sqlalchemy.orm.exc import NoResultFound
 
 Line = namedtuple('Line', [
     'id', 'symbol', 'name',
@@ -24,11 +26,11 @@ Line = namedtuple('Line', [
 ])
 
 DB_REFS = [Namespace.entrez,
-         Namespace.uniprot]
+           Namespace.uniprot]
 FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 
 # Mapping of references to other DBs that are not correct to their
-# correct values
+# right IDs; This mostly is about HGNC linking to wrong Entrez Gene IDs.
 WRONG_DB_REFS = {
     #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
     # HGNC:9135; and again Entrez seems to have the valid mapping:
@@ -58,8 +60,8 @@ WRONG_DB_REFS = {
     DBRef(Namespace.entrez, '643955'): DBRef(Namespace.entrez, '100170646'),
     # HGNC:37758; and again Entrez seems to have the valid mapping:
     DBRef(Namespace.entrez, '100420293'): DBRef(Namespace.entrez, '80699'),
-
     }
+
 
 class Parser(AbstractLoader):
     """
@@ -70,6 +72,23 @@ class Parser(AbstractLoader):
 
     def _setup(self, stream:io.TextIOWrapper):
         lines = super(Parser, self)._setup(stream)
+        logging.debug('correcting wrong links by Entrez')
+        
+        try:
+            hgnc = self.session.query(GeneRef).filter(
+                GeneRef.namespace == Namespace.hgnc,
+                GeneRef.accession == '31739').one()
+            entrez = self.session.query(GeneRef).filter(
+                GeneRef.namespace == Namespace.entrez,
+                GeneRef.accession == '648809').one()
+            hgnc.id = entrez.id
+            logging.info(
+                'correcting wrong link of %s:31739 from %s:388159 to %s:648809'
+                , Namespace.hgnc, Namespace.entrez, Namespace.entrez)
+            self.session.flush()
+        except NoResultFound:
+            pass
+
         logging.debug("file header:\n%s", stream.readline().strip())
         return lines + 1
 
@@ -111,16 +130,19 @@ class Parser(AbstractLoader):
         # parse symbol strings
         for field in (row.previous_symbols, row.synonyms):
             if field:
-                map(record.addSymbol, Parser._parseCD(field))
+                for symbol in Parser._parseCD(field):
+                    record.addSymbol(symbol)
 
         # parse name strings
         for field in (row.previous_names, row.name_synonyms):
             if field:
-                map(record.addName, Parser._parseQCD(field))
+                for name in Parser._parseQCD(field):
+                    record.addName(name)
 
         # parse keywords strings
         if row.gene_family_symbols:
-            map(record.addKeyword, Parser._parseCD(row.gene_family_symbols))
+            for kwd in Parser._parseCD(row.gene_family_symbols):
+                record.addKeyword(kwd)
 
         for name in Parser._parseQCD(row.gene_family_names):
             for subname in name.split(' / '):
