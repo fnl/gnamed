@@ -33,24 +33,26 @@ FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 # right IDs; This mostly is about HGNC linking to wrong Entrez Gene IDs.
 WRONG_DB_REFS = {
     #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
-    # HGNC:9135; and again Entrez seems to have the valid mapping:
+    # HGNC:3633
+    DBRef(Namespace.entrez, '619190'): DBRef(Namespace.entrez, '392063'),
+    # HGNC:9135
     DBRef(Namespace.entrez, '100132832'): DBRef(Namespace.entrez, '5391'),
-    # HGNC:10300; and again Entrez seems to have the valid mapping:
+    # HGNC:10300
     DBRef(Namespace.entrez, '100288252'): DBRef(Namespace.entrez, '54030'),
     # HGNC:18906 maps to KRTAP2-4, but should map to -3; Entrez has the correct
     # mapping back to HGNC:
     DBRef(Namespace.entrez, '730755'): DBRef(Namespace.entrez, '85295'),
-    # HGNC:31023; and again Entrez seems to have the valid mapping:
+    # HGNC:31023
     DBRef(Namespace.entrez, '100287637'): DBRef(Namespace.entrez, '654504'),
-    # HGNC:31420; and again Entrez seems to have the valid mapping:
+    # HGNC:31420
     DBRef(Namespace.entrez, '100129250'): DBRef(Namespace.entrez, '548324'),
-    # HGNC:32000; and again Entrez seems to have the valid mapping:
+    # HGNC:32000
     DBRef(Namespace.entrez, '100288142'): DBRef(Namespace.entrez, '641590'),
     # HGNC:32078 and 32077 have the links to Entrez convoluted/inverted;
     # Entrez has the correct mappings for the two genes:
     DBRef(Namespace.entrez, '574445'): DBRef(Namespace.entrez, '574446'),
     DBRef(Namespace.entrez, '574446'): DBRef(Namespace.entrez, '574445'),
-    # HGNC:32284; and again Entrez seems to have the valid mapping:
+    # HGNC:32284
     DBRef(Namespace.entrez, '100132396'): DBRef(Namespace.entrez, '441330'),
     # HGNC:32409 should map to TBC1D3P4, not TBC1D3P; Entrez has the correct
     # mapping back to HGNC:
@@ -58,7 +60,7 @@ WRONG_DB_REFS = {
     # HGNC:32473 maps to ZNF479, but should map to ZNF733; Entrez has the
     # correct mapping back to HGNC:
     DBRef(Namespace.entrez, '643955'): DBRef(Namespace.entrez, '100170646'),
-    # HGNC:37758; and again Entrez seems to have the valid mapping:
+    # HGNC:37758
     DBRef(Namespace.entrez, '100420293'): DBRef(Namespace.entrez, '80699'),
     }
 
@@ -73,7 +75,7 @@ class Parser(AbstractLoader):
     def _setup(self, stream:io.TextIOWrapper):
         lines = super(Parser, self)._setup(stream)
         logging.debug('correcting wrong links by Entrez')
-        
+
         try:
             hgnc = self.session.query(GeneRef).filter(
                 GeneRef.namespace == Namespace.hgnc,
