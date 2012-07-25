@@ -12,7 +12,7 @@ from collections import namedtuple
 from shlex import shlex
 
 from libgnamed.constants import Species, Namespace
-from libgnamed.loader import GeneRecord, AbstractLoader, DBRef
+from libgnamed.loader import GeneRecord, AbstractLoader, DBRef, DuplicateEntityError
 from libgnamed.orm import GeneRef
 from sqlalchemy.orm.exc import NoResultFound
 
@@ -42,6 +42,8 @@ WRONG_DB_REFS = {
     # HGNC:18906 maps to KRTAP2-4, but should map to -3; Entrez has the correct
     # mapping back to HGNC:
     DBRef(Namespace.entrez, '730755'): DBRef(Namespace.entrez, '85295'),
+    # HGNC:20616
+    DBRef(Namespace.entrez, '448990'): DBRef(Namespace.entrez, '338397'),
     # HGNC:31023
     DBRef(Namespace.entrez, '100287637'): DBRef(Namespace.entrez, '654504'),
     # HGNC:31420
@@ -113,7 +115,8 @@ class Parser(AbstractLoader):
         row = Line._make(items)
         record = GeneRecord(Species.human, symbol=row.symbol, name=row.name,
                             location=row.location if row.location else None)
-        record.addDBRef(DBRef(Namespace.hgnc, row.id))
+        db_key = DBRef(Namespace.hgnc, row.id)
+        record.addDBRef(db_key)
 
         # link DB references
         for ns in DB_REFS:
@@ -159,7 +162,24 @@ class Parser(AbstractLoader):
                     if subsubname.lower() not in ('other', '"other"'):
                         record.addKeyword(subsubname)
 
-        self._loadRecord(DBRef(Namespace.hgnc, row.id), record)
+        try:
+            self._loadRecord(db_key, record)
+        except DuplicateEntityError:
+            if len(record.refs) == 2:
+                # assume all HGNC links that do not coincide with the
+                # Entrez back-link are bad, as it seems it is mostly
+                # HGNC that is not up-to-date.
+                logging.warn('removing likely bad Entrez ref in %s:%s',
+                             *db_key)
+                assert any(r.namespace == Namespace.entrez
+                    for r in record.refs), record.refs
+                record.refs = {r for r in record.refs if
+                               r.namespace == Namespace.hgnc}
+                assert len(record.refs) == 1, record.refs
+                self._loadRecord(db_key, record)
+            else:
+                raise
+
         return 1
 
     def _cleanup(self, file:io.TextIOWrapper):
