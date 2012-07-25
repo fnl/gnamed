@@ -30,10 +30,27 @@ FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
 # Mapping of references to other DBs that are not correct to their
 # correct values
 WRONG_DB_REFS = {
-    # HGNC:18906 maps to KRTAP2-4, but should be -3; Entrez has the correct
-    # mapping back to the HGNC record for KRTAP2-3:
-    DBRef(Namespace.entrez, '730755'): DBRef(Namespace.entrez, '85295'),
     #DBRef(Namespace.entrez, ''): DBRef(Namespace.entrez, ''),
+    # HGNC:18906 maps to KRTAP2-4, but should map to -3; Entrez has the correct
+    # mapping back to HGNC:
+    DBRef(Namespace.entrez, '730755'): DBRef(Namespace.entrez, '85295'),
+    # HGNC:31420; and again Entrez seems to have the valid mapping:
+    DBRef(Namespace.entrez, '100129250'): DBRef(Namespace.entrez, '548324'),
+    # HGNC:32000; and again Entrez seems to have the valid mapping:
+    DBRef(Namespace.entrez, '100288142'): DBRef(Namespace.entrez, '641590'),
+    # HGNC:32078 and 32077 have the links to Entrez convoluted/inverted;
+    # Entrez has the correct mappings for the two genes:
+    DBRef(Namespace.entrez, '574445'): DBRef(Namespace.entrez, '574446'),
+    DBRef(Namespace.entrez, '574446'): DBRef(Namespace.entrez, '574445'),
+    # HGNC:32284; and again Entrez seems to have the valid mapping:
+    DBRef(Namespace.entrez, '100132396'): DBRef(Namespace.entrez, '441330'),
+    # HGNC:32409 should map to TBC1D3P4, not TBC1D3P; Entrez has the correct
+    # mapping back to HGNC:
+    DBRef(Namespace.entrez, '100631253'): DBRef(Namespace.entrez, '653018'),
+    # HGNC:32473 maps to ZNF479, but should map to ZNF733; Entrez has the
+    # correct mapping back to HGNC:
+    DBRef(Namespace.entrez, '643955'): DBRef(Namespace.entrez, '100170646'),
+
     }
 
 class Parser(AbstractLoader):
