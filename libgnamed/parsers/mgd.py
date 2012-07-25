@@ -145,14 +145,6 @@ class Parser(AbstractLoader):
             db_key = DBRef(Namespace.mgd, row.id)
             record = self._getRecord(db_key)
             ref = DBRef(Namespace.entrez, row.gene_id)
-
-            if ref in WRONG_DB_REFS:
-                new_ref = WRONG_DB_REFS[ref]
-                logging.info('correcting wrong ref %s->%s',
-                             '{}:{}'.format(*ref),
-                             '{}:{}'.format(*new_ref))
-                ref = new_ref
-
             record.addDBRef(ref)
             logging.debug('parsed link to %s:%s', *ref)
 
