@@ -20,6 +20,10 @@ from libgnamed.parsers import AbstractParser
 DBRef = namedtuple('DBRef', ['namespace', 'accession'])
 
 
+class DuplicateEntityError(RuntimeError):
+    pass
+
+
 class AbstractRecord:
     """
     The abstract representation of a gene/protein name record to store.
@@ -261,14 +265,14 @@ class AbstractLoader(AbstractParser):
 
         # create the entity or ensure we have exactly one
         if not entities:
-            logging.info('creating a new %s entity for %s:%s',
-                         entity_name, *db_key)
+            logging.debug('creating a new %s entity for %s:%s',
+                          entity_name, *db_key)
             entity = Entity(record.species_id)
             self.session.add(entity)
             addEntity(entity)
         elif len(entities) > 1:
             # raise an error when more than one entity was found
-            raise RuntimeError(
+            raise DuplicateEntityError(
                 "{} {}s ({}) found for {}:{} ({})".format(
                     len(entities), entity_name,
                     ", ".join(str(e.id) for e in entities), db_key.namespace,
