@@ -50,6 +50,8 @@ WRONG_DB_REFS = {
     # HGNC:32473 maps to ZNF479, but should map to ZNF733; Entrez has the
     # correct mapping back to HGNC:
     DBRef(Namespace.entrez, '643955'): DBRef(Namespace.entrez, '100170646'),
+    # HGNC:37758; and again Entrez seems to have the valid mapping:
+    DBRef(Namespace.entrez, '100420293'): DBRef(Namespace.entrez, '80699'),
 
     }
 
