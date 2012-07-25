@@ -101,6 +101,25 @@ So it is advisable to first load the generic repositories (Entrez, UniProt)
 and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
 metadata.
 
+Taxonomy
+========
+
+The NCBI Taxonomy is used as the main **species** reference. As some databases
+are not always up-to-date, in addition to the default nodes (and their names),
+the merged nodes are added, too. This allows mapping of many out-dated TaxIDs
+to the relevant (current) species. All (outdated) NCBI TaxIDs that have
+been merged into new nodes are added to the **species** table, using the merge
+target as their parent_id and with the constant value "``merged``" in the
+*rank* attribute, that normally qualifies the type of node. However, there are
+records that have no known mapping to the NCBI Taxonomy (and despite being
+qualified as NCBI TaxIDs) in some databases. These references to "unknown"
+species are all re-mapped to the NCBI node for unknown species (NCBI TaxID
+``32644``). For example, in TrEMBL (UniProt), this is the case for about 60
+species IDs and their associated proteins.
+
+The **species_names** table contains all names for a given node, using the
+attribute *cat* to qualify the type of name (e.g., "``common name``").
+
 Fast Loading
 ============
 
