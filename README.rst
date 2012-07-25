@@ -12,9 +12,11 @@ Entity Relationship Model
 
 ::
 
-       [SpeciesName] -> [Species*]
-                             ^
-    [<Entity>String] -> [<Entity>] <- [<Entity>Ref]
+    [SpeciesName] → [Species*]
+                         ↑
+    [EntityString] → [Entity] ← [EntityRef]
+                       ↑  ↑
+                     <mapping>
 
 Species (species)
   =id:INT, parent_id:FK(Species), +rank:VARCHAR(32),
@@ -33,17 +35,17 @@ Protein (proteins)
 mapping (genes2proteins)
   =gene_id:FK(Gene), =protein_id:FK(Protein)
 
-<Entity>Ref (<entity>_refs)
+EntityRef (entity_refs)
   =namespace:VARCHAR(8), =accession:VARCHAR(64),
   symbol:VARCHAR(64), name:TEXT, id:FK(<Entity>)
 
-<Entity>String (<entity>_strings)
+EntityString (entity_strings)
   =id:FK(Species), =cat:VARCHAR(32), =value:TEXT
 
 - [=] (Compound) Primary Key
 - [+] NOT NULL
-- [<Entity>] can be either "Gene" or "Protein"
-- [<entity>] can be either "gene" or "protein"
+- [Entity] can be either "Gene" or "Protein"
+- [entity] can be either "gene" or "protein"
 
 Requirements
 ============
