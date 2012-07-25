@@ -336,6 +336,10 @@ class AbstractLoader(AbstractParser):
 
             for other_id, this_ids in known.items():
                 if entity.id not in this_ids:
+                    if entity.id is None:
+                        self.session.flush()
+                        assert entity.id is not None
+
                     logging.debug('adding mapping {}:{}->{}:{}'.format(
                         entity_name, entity.id, other_name, other_id
                     ))
