@@ -12,48 +12,41 @@ Entity Relationship Model
 
 ::
 
-          [Protein] <-> [Database] <-> [Gene]
-            ^   |                       |  ^
-            |    ---------v     v--------  |
-  [Name,Symbol,Keywords] [Species] [Name,Symbol,Keywords]
+    [SpeciesName] → [Species*]
+                         ↑
+    [EntityString] → [Entity] ← [EntityRef]
+                       ↑  ↑
+                     <mapping>
 
 Species (species)
-  *id:INT, acronym:VARCHAR(64), common_name:TEXT, scientific_name:TEXT
+  **id**:INT, parent_id:FK(Species), *rank*:VARCHAR(32),
+  *unique_name*:TEXT, genbank_name:TEXT
 
-Database (databases)
-  *namespace:VARCHAR(8), *accession:VARCHAR(64), version:VARCHAR(16),
-  symbol:VARCHAR(64), name:TEXT
-
-Protein (proteins)
-  *id:BIGINT, species_id:FK_Species, mass:INT, length:INT
+SpeciesName (species_names)
+  **id**:FK(Species), **cat**:VARCHAR(32), **name**:TEXT
 
 Gene (genes)
-  *id:BIGINT, species_id:FK_Species, chromosome:VARCHAR(32),
-  location:VARCHAR(64)
+  **id**:BIGINT, *species_id*:FK_Species,
+  chromosome:VARCHAR(32), location:VARCHAR(64)
 
-Database2Protein, Database2Gene
-  *namespace:FK_Database, *accession:FK_Database,
-  *protein_id/gene_id:FK_Protein/FK_Gene,
+Protein (proteins)
+  **id**:BIGINT, *species_id*:FK_Species,
+  mass:INT, length:INT
 
-GeneSymbol (gene_symbols)
-  *gene_id:FK_Gene, *symbol:VARCHAR(64)
+mapping (genes2proteins)
+  **gene_id**:FK(Gene), **protein_id**:FK(Protein)
 
-ProteinSymbol (protein_symbols)
-  *protein_id:FK_Protein, *symbol:VARCHAR(64)
+EntityRef (entity_refs)
+  **namespace**:VARCHAR(8), **accession**:VARCHAR(64),
+  symbol:VARCHAR(64), name:TEXT, id:FK(Entity)
 
-GeneName (gene_names)
-  *gene_id:FK_Gene, *name:TEXT
+EntityString (entity_strings)
+  **id**:FK(Entity), **cat**:VARCHAR(32), **value**:TEXT
 
-ProteinName (protein_names)
-  *protein_id:FK_Protein, *name:TEXT
-
-GeneKeyword (gene_keywords)
-  *gene_id:FK_Gene, *keyword:TEXT
-
-ProteinKeyword (protein_keyword)
-  *protein_id:FK_Protein, *keyword:TEXT
-
-*(Compound) Primary Key
+- **bold** (Compound) Primary Key
+- *italic* NOT NULL
+- ``Entity`` can be either "Gene" or "Protein"
+- ``entity`` can be either "gene" or "protein"
 
 Requirements
 ============
@@ -108,28 +101,57 @@ So it is advisable to first load the generic repositories (Entrez, UniProt)
 and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
 metadata.
 
+Taxonomy
+========
+
+The NCBI Taxonomy is used as the main **species** reference. As some databases
+are not always up-to-date, in addition to the default nodes (and their names),
+the merged nodes are added, too. This allows mapping of many out-dated TaxIDs
+to the relevant (current) species. All (outdated) NCBI TaxIDs that have
+been merged into new nodes are added to the **species** table, using the merge
+target as their parent_id and with the constant value "``merged``" in the
+*rank* attribute, that normally qualifies the type of node. However, there are
+records that have no known mapping to the NCBI Taxonomy (and despite being
+qualified as NCBI TaxIDs) in some databases. These references to "unknown"
+species are all re-mapped to the NCBI node for unknown species (NCBI TaxID
+``32644``). For example, in TrEMBL (UniProt), this is the case for about 60
+species IDs and their associated proteins.
+
+The **species_names** table contains all names for a given node, using the
+attribute *cat* to qualify the type of name (e.g., "``common name``").
+
 Fast Loading
 ============
 
 Given that loading **Entrez Gene** and **UniProt** can take a very long time
-(up to a few days) if they are loaded using the default mechanism, a fast DB
+(days or weeks) if they are loaded using the default mechanism, a fast DB
 dump mechanism (using "``COPY FROM`` stream") is available for those DBs,
 circumventing the ORM and its dreadful ``INSERT`` statements. These dumps are
-implemented directly with the underlying DB drivers. Thus, only the following
-DBs are currently supported with fast loading:
+implemented directly with the underlying DB drivers. Therefore, only the
+following DBs are currently supported with fast loading:
 
   - PostgreSQL (suffix -pg; driver: **psycopg2**)
 
 To use fast loading, the first repository to load into a just initialized
 database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
-two UniProt files may be fast-loaded and finally all other repositories may be
-added (regularly) in any order. To activate the fast loader instead of the
-regular Parser/ORM mechanism, append the suffix to the repository key, e.g.,
-to fast load Entrez into a Postgres DB use: ``gnamed load entrezpg gene_info``.
+two UniProt files may be fast-loaded and finally all other repositories should
+be added in any preferred order. To activate the fast loader instead of the
+regular Parser/ORM mechanism, append the suffix ``pg`` to the repository key,
+e.g., to fast load Entrez into a Postgres DB use:
+``gnamed load entrezpg gene_info``.
 
 Note that if you decide to use SQLight as your DB, the way the ORM dumps data
 into it is nearly as quick as using ``COPY FROM`` stream. Therefore, for this
 particular DB, fast loading is probably not an issue.
+
+Truncating UniProt Files
+========================
+
+Particularly loading the TrEMBL data can be daunting, because the corresponding
+UniProt flatfile dump is huge (several GB *compressed*). To reduce the size of
+the UniProt files, all unnecessary lines can be removed from the dump files::
+
+    grep "^\(ID\|AC\|DT\|DE\|GN\|OX\|DR\|KW\|SQ\|//\)" uniprot_trembl.dat > uniprot_trembl.min.dat
 
 License
 =======
