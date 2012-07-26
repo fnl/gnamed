@@ -48,6 +48,17 @@ EntityString (entity_strings)
 - ``Entity`` can be either "Gene" or "Protein"
 - ``entity`` can be either "gene" or "protein"
 
+Supported Repositories
+======================
+
+- Entrez Gene
+- UniProt
+- HGNC
+- MGI/MGD
+- RGD
+
+Planned: ECOCYC, FlyBase, PomBase, SGD, TAIR, WormBase, XenBase
+
 Requirements
 ============
 
@@ -58,23 +69,37 @@ Requirements
 Setup
 =====
 
-TODO Install this script::
+Set up your virtual environment and fetch the library (optional)::
 
-    sudo python setup.py install
+    pip install virtualenv # if virtualenv is not yet installed
+    git clone git://github.com/fnl/gnamed.git gnamed
+    virtualenv gnamed
+    cd gnamed
+    . bin/activate
 
-On a command line, create the database::
+Install all dependencies/requirements::
+
+    pip install argparse # only for python3 < 3.2
+    pip install SQLAlchemy
+    pip install psycopg2 # optional, can use any other driver
+
+Install this script::
+
+    ./setup.py install
+
+Create the database::
 
     psql -c "DROP DATABASE IF EXISTS gnamed"
     psql -c "CREATE DATABASE gnamed ENCODING='UTF-8'"
 
-Then, download the NCBI Taxonomy file::
+Then, download the NCBI Taxonomy archive::
 
     gnamed fetch taxa -d /tmp
     tar zxvf /tmp/taxdump.tar.gz
 
-Boostrap the DB with the taxa file::
+Boostrap the DB with the NCBI Taxonomy files::
 
-    gnamed init /tmp/names.dmp
+    gnamed init /tmp/nodes.dmp /tmp/names.dmp /tmp/merged.dmp
 
 Usage
 =====
@@ -95,7 +120,7 @@ To see a list of available repositories, use::
     gnamed --list
 
 **Important:** The order in which repositories are loaded *does* matter,
-particularly for setting Gene and Protein metadata (chromosome, location,
+particularly for setting gene and protein metadata (chromosome, location,
 length, mass). The last repository loaded will always overwrite this metadata.
 So it is advisable to first load the generic repositories (Entrez, UniProt)
 and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
@@ -152,6 +177,11 @@ UniProt flatfile dump is huge (several GB *compressed*). To reduce the size of
 the UniProt files, all unnecessary lines can be removed from the dump files::
 
     grep "^\(ID\|AC\|DT\|DE\|GN\|OX\|DR\|KW\|SQ\|//\)" uniprot_trembl.dat > uniprot_trembl.min.dat
+
+It is possible to load the UniProt files separately or even only load
+SwissProt::
+
+    gnamed load uniprotpg uniprot_sprot.min.dat
 
 License
 =======
