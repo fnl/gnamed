@@ -51,11 +51,11 @@ EntityString (entity_strings)
 Supported Repositories
 ======================
 
-- Entrez Gene
-- UniProt
-- HGNC
-- MGI/MGD
-- RGD
+- Entrez Gene (key: ``entrez``)
+- UniProt (key: ``uniprot``)
+- HGNC (key: ``hgnc``)
+- MGI/MGD (key: ``mgd``)
+- RGD (key: ``rgd``)
 
 Planned: ECOCYC, FlyBase, PomBase, SGD, TAIR, WormBase, XenBase
 
