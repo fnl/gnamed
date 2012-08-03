@@ -351,7 +351,8 @@ class Parser(AbstractLoader):
             subcat = "Full"
 
         if subcat == "Full":
-            name = "{}{}".format(name[0].lower(), name[1:])
+            if (name[1].islower() and name[0].isupper()):
+                name = "{}{}".format(name[0].lower(), name[1:])
 
             while name.startswith("uncharacterized protein ") or \
                name.startswith("putative ") or\
@@ -369,6 +370,9 @@ class Parser(AbstractLoader):
             while comma != -1:
                 name = "{} {}".format(name[comma+2:], name[:comma])
                 comma = name.rfind(', ')
+
+            if name == "uncharacterized protein":
+                return 0
 
         if self._name_cat == 'RecName':
             if subcat == 'Full':
