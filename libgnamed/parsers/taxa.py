@@ -117,7 +117,7 @@ class Parser(AbstractParser):
         return 1
 
     def _flush(self):
-        pass
+        self.session.flush()
 
     def _cleanup(self, file:io.TextIOWrapper) -> int:
         num_records = super(Parser, self)._cleanup(file)
