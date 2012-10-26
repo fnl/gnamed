@@ -210,6 +210,8 @@ elif args.command == 'load' and args.repository:
     repo_parser.parse()
 elif args.command == 'init':
     for file in (args.nodes, args.names, args.merged):
+        if not file:
+            parser.error('missing input files')
         if not os.path.exists(file):
             parser.error('file "{}" does not exist'.format(file))
 
