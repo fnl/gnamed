@@ -148,6 +148,7 @@ TRANSLATE = {
     'GeneTree': None,
     'Genevestigator': None,
     'GenoList': None,
+    'GenomeRNAi': None,
     'GermOnline': None,
     'GlycoSuiteDB': None,
     'GO': None,
@@ -454,13 +455,16 @@ class Parser(AbstractLoader):
         mo = Parser.DR_RE.match(line)
         namespace = mo.group('namespace')
 
-        if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
-            assert mo.group('accessions')[-1] == '.', mo.group('accessions')
+        try:
+            if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
+                assert mo.group('accessions')[-1] == '.', mo.group('accessions')
 
-            for db_ref in TRANSLATE[namespace]([
-                i.strip() for i in mo.group('accessions')[:-1].split(';')
-            ]):
-                self.record.addDBRef(db_ref)
+                for db_ref in TRANSLATE[namespace]([
+                    i.strip() for i in mo.group('accessions')[:-1].split(';')
+                ]):
+                    self.record.addDBRef(db_ref)
+        except KeyError:
+            logging.warning("unknown Namespace '%s'", namespace)
 
         return 0
 
