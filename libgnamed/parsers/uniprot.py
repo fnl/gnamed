@@ -77,6 +77,7 @@ def translate_MGI(items:list):
 def translate_PomBase(items:list):
     yield DBRef(Namespace.pombase, items[0])
 
+
 def translate_RGD(items:list):
     yield DBRef(Namespace.rgd, items[0])
 
@@ -224,6 +225,7 @@ TRANSLATE = {
     'TubercuList': None,
     'UCD-2DPAGE': None,
     'UniGene': None,
+    'UniPathway': None,
     'UCSC': None,
     'VectorBase': None,
     'World-2DPAGE': None,
