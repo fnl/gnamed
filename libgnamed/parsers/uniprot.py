@@ -353,8 +353,16 @@ class Parser(AbstractLoader):
         if subcat == "Short" and len(name) > 16 and ' ' in name:
             subcat = "Full"
 
+        if subcat == "Full" and len(name) < 6 and name.find(' ') == -1:
+            subcat = "Short"
+
         if subcat == "Full":
-            if (name[1].islower() and name[0].isupper()):
+            end = name.find(' ')
+
+            if end == -1:
+                end = len(name)
+
+            if (name[0].isupper() and name[1:end].islower()):
                 name = "{}{}".format(name[0].lower(), name[1:])
 
             while name.startswith("uncharacterized protein ") or \
@@ -365,7 +373,7 @@ class Parser(AbstractLoader):
                 else:
                     name = name[9:]
 
-                if ' ' not in name and len(name) < 16:
+                if len(name) < 16 and ' ' not in name:
                     subcat = "Short"
 
             comma = name.rfind(', ')
@@ -378,7 +386,7 @@ class Parser(AbstractLoader):
                 return 0
 
         if self._name_cat == 'RecName':
-            if subcat == 'Full':
+            if subcat == 'Full' and not self.record.name:
                 self.record.name = name
             elif subcat == 'Short' and not self.record.symbol:
                 self.record.symbol = name
