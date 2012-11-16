@@ -11,9 +11,11 @@ import io
 import logging
 
 from collections import namedtuple
+from sqlalchemy.orm.exc import NoResultFound
 
 from libgnamed.constants import Species, Namespace
-from libgnamed.loader import GeneRecord, AbstractLoader, DBRef
+from libgnamed.loader import GeneRecord, AbstractLoader, DBRef, DuplicateEntityError
+from libgnamed.orm import GeneRef, Gene
 
 CONTENT = [
     (0, 'id'),
@@ -82,8 +84,12 @@ class Parser(AbstractLoader):
             accs = getattr(row, ns)
 
             if accs:
-                for acc in accs.split(';'):
-                    record.addDBRef(DBRef(ns, acc))
+                if ns == Namespace.uniprot:
+                    for acc in accs.split(';'):
+                        record.addDBRef(DBRef(ns, acc))
+                else:
+                    accs = accs.split(';')
+                    record.addDBRef(DBRef(ns, accs[0]))
 
         # parse symbol strings
         if row.symbol:
@@ -107,7 +113,58 @@ class Parser(AbstractLoader):
             for desc in row.descriptions.split('; '):
                 record.addKeyword(desc.strip())
 
-        self._loadRecord(db_key, record)
+        try:
+            self._loadRecord(db_key, record)
+        except DuplicateEntityError as e:
+            accs = getattr(row, Namespace.entrez)
+
+            if accs:
+                # Entrez Gene is not unique, having created multiple GIs for the same gene.
+                # Sometimes, single Entrez Genes are badly linked by RGD, as in the case of
+                # RGD:69363 linking to GI:113900, that should be linked to GI:10092108. This code
+                # can update such artifacts in RGD, too, and eliminates the duplicate Genes.
+                logging.warning('removing duplicate rat genes for rgd:%s with Entrez GIs %s',
+                                row.id, accs)
+                rgd_ref = self.session.query(GeneRef).filter(
+                    GeneRef.accession == row.id
+                ).filter(GeneRef.namespace == Namespace.rgd).one()
+                logging.debug('correct %s links to gene:%s', repr(rgd_ref), rgd_ref.id)
+                orphan_genes = {}
+
+                # Update retired RGD and Entrez entries by pointing the outdated
+                # Refs to the right Gene (rgd_ref.id), while deleting the "duplicate" Genes.
+                for gi in accs.split(';'):
+                    entrez_ref = self.session.query(GeneRef).filter(
+                        GeneRef.accession == gi
+                    ).filter(GeneRef.namespace == Namespace.entrez).one()
+
+                    if entrez_ref.id != rgd_ref.id:
+                        try:
+                            retired_ref = self.session.query(GeneRef).filter(
+                                GeneRef.id == entrez_ref.id
+                            ).filter(GeneRef.namespace == Namespace.rgd).one()
+                            logging.debug('updating %s and retired %s reference to orphan gene:%s',
+                                          repr(entrez_ref), repr(retired_ref), entrez_ref.id)
+                            retired_ref.id = rgd_ref.id
+                        except NoResultFound:
+                            logging.debug('updating %s reference to orphan gene:%s',
+                                          repr(entrez_ref), entrez_ref.id)
+
+                        if entrez_ref.id not in orphan_genes:
+                            orphan_genes[entrez_ref.id] = self.session.query(Gene).filter(
+                                Gene.id == entrez_ref.id
+                            ).one()
+
+                        entrez_ref.id = rgd_ref.id
+
+                for gene in orphan_genes.values():
+                    self.session.delete(gene)
+
+                self._flush();
+                self._loadRecord(db_key, record)
+            else:
+                raise
+
         return 1
 
     def _cleanup(self, file:io.TextIOWrapper):
