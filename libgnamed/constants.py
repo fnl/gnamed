@@ -48,9 +48,18 @@ REPOSITORIES = {
             ('MRK_SwissProt_TrEMBL.rpt', 'MRK_SwissProt_TrEMBL.rpt', 'UTF-8'),
             ('MGI_EntrezGene.rpt', 'MGI_EntrezGene.rpt', 'UTF-8'),
         ],
-        'description': 'Mouse Geneome Datbase text files',
+        'description': 'Mouse Geneome Database text files',
     },
-    }
+    'sgd': {
+
+        'url': 'http://yeastmine.yeastgenome.org/yeastmine/service/query/results?',
+        'resources': [
+            # SGDID, Qualifier(Verified, Uncharacterized, Dubious, NULL), Std Name(Symbol OR NULL - use Systematic Name then), Name OR NULL, Systematic Name(Location, 2nd char = chromosome), Length OR NULL, Protein Name OR NULL, Alias(incl. Std Name and Systematic Name)
+            ('query=%3Cquery+name%3D%22%22+model%3D%22genomic%22+view%3D%22Gene.primaryIdentifier+Gene.qualifier+Gene.symbol+Gene.name+Gene.secondaryIdentifier+Gene.length+Gene.proteins.symbol+Gene.synonyms.value%22+sortOrder%3D%22Gene.primaryIdentifier+asc%22%3E%3Cjoin+path%3D%22Gene.proteins%22+style%3D%22OUTER%22%2F%3E%3Cconstraint+path%3D%22Gene.status%22+op%3D%22%3D%22+value%3D%22Active%22%2F%3E%3C%2Fquery%3E&format=tab', 'names.tsv', 'US-ASCII'),
+        ],
+        'description': 'Yeast Genome Database gene (and protein) names',
+    },
+}
 
 class Namespace:
     # general DBs
@@ -59,7 +68,7 @@ class Namespace:
     # organism-specific DBs
     hgnc = 'hgnc' # human
     mgd = 'mgi' # mouse
-    rgd = 'rgd' # human and rat
+    rgd = 'rgd' # rat
     flybase = 'fly' # (fruit) fly
     sgd = 'sgd' # bakers yeast (S. cerevisiae)
     pombase = 'pb' # fission yeast (S. pombe)
@@ -109,7 +118,7 @@ class Species:
     mouse = 10090 # M. musculus
     rat = 10116 # R. norvegus
     fly = 7227 # D. melanogaster
-    bakers_yeast = 4932 # S. cerevisiae
+    budding_yeast = 4932 # S. cerevisiae
     fission_yeast = 4896 # S. pombe
     cress = 3702 # A. thaliana
     e_coli = 562 # E. coli
@@ -126,7 +135,7 @@ SPECIES = frozenset({
     Species.fly,
     # various Drosophila species in FlyBase:
     46245, 7217, 7220, 7222, 7230, 7234, 7238, 7240, 7244, 7245, 7260,
-    Species.bakers_yeast,
+    Species.budding_yeast ,
     # additional yeast strains in SGD:
     559292,
     Species.fission_yeast,
@@ -147,7 +156,7 @@ SPECIES_SPACES = {
     Namespace.rgd: frozenset({Species.human, Species.rat}),
     Namespace.flybase: frozenset({Species.fly, 46245, 7217, 7220, 7222, 7230,
                                   7234, 7238, 7240, 7244, 7245, 7260}),
-    Namespace.sgd: frozenset({Species.bakers_yeast, 559292}),
+    Namespace.sgd: frozenset({Species.budding_yeast, 559292}),
     Namespace.pombase: frozenset({Species.fission_yeast}),
     Namespace.tair: frozenset({Species.cress}),
     Namespace.ecocyc: frozenset({Species.e_coli, 511145}),
