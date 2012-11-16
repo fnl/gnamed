@@ -154,6 +154,10 @@ class Parser(AbstractLoader):
             for kwd in Parser._parseCD(row.gene_family_symbols):
                 record.addKeyword(kwd)
 
+        # location with ALT_REF_LOCI values - eliminate them
+        if row.location and " ALT_REF_LOCI" in row.location:
+            record.location = row.location[:row.location.find(" ALT_REF_LOCI")]
+
         for name in Parser._parseQCD(row.gene_family_names):
             for subname in name.split(' / '):
                 for subsubname in subname.split(' : '):
