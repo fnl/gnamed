@@ -27,9 +27,9 @@ def retrieve(*repo_keys:str, directory:str=os.getcwd(),
         url = repo['url']
 
         for path, filename, remote_enc in repo['resources']:
-            logging.info("streaming %s (%s) to %s",
-                         filename, encoding, directory)
-            logging.debug("connecting to %s%s", url, path)
+            logging.debug("connecting to '%s%s'", url, path)
+            logging.info("streaming into '%s' (%s)",
+                         os.path.join(directory, filename), encoding)
 
             if remote_enc is not None:
                 stream = urlopen(url + path)
@@ -42,7 +42,7 @@ def retrieve(*repo_keys:str, directory:str=os.getcwd(),
 
                     if remote_enc != mo.group(1):
                         remote_enc = mo.group(1)
-                        logging.warn("%s encoding is %s",
+                        logging.warn("remote encoding at %s is %s",
                                      url + path, remote_enc)
 
                 output = open(os.path.join(directory, filename), mode='w',

@@ -183,6 +183,8 @@ elif args.command == 'load' and args.repository:
     try:
         initdb(db_url)
     except OperationalError as oe:
+        if logging.getLogger().isEnabledFor(logging.DEBUG):
+            logging.exception("DB error")
         parser.error(str(oe.orig).strip())
 
     if args.repository in ('entrezpg', 'uniprotpg'):
@@ -222,6 +224,8 @@ elif args.command == 'init':
     try:
         initdb(db_url)
     except OperationalError as oe:
+        if logging.getLogger().isEnabledFor(logging.DEBUG):
+            logging.exception("DB error")
         parser.error(str(oe.orig).strip())
 
     taxa_parser = taxa.Parser(args.nodes, args.names, args.merged,
