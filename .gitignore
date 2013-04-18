@@ -1,4 +1,5 @@
 .*
 env
 tests
+tags
 **__pycache__

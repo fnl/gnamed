@@ -20,6 +20,8 @@ WRONG_SPECIES_MAPPINGS = frozenset({
     1054147,
     1094619,
     1136501,
+    1173522,
+    1217067,
     179404,
     2196,
     262966,
@@ -76,6 +78,7 @@ def translate_MGI(items:list):
 
 def translate_PomBase(items:list):
     yield DBRef(Namespace.pombase, items[0])
+
 
 def translate_RGD(items:list):
     yield DBRef(Namespace.rgd, items[0])
@@ -147,6 +150,7 @@ TRANSLATE = {
     'GeneTree': None,
     'Genevestigator': None,
     'GenoList': None,
+    'GenomeRNAi': None,
     'GermOnline': None,
     'GlycoSuiteDB': None,
     'GO': None,
@@ -224,6 +228,7 @@ TRANSLATE = {
     'TubercuList': None,
     'UCD-2DPAGE': None,
     'UniGene': None,
+    'UniPathway': None,
     'UCSC': None,
     'VectorBase': None,
     'World-2DPAGE': None,
@@ -350,8 +355,16 @@ class Parser(AbstractLoader):
         if subcat == "Short" and len(name) > 16 and ' ' in name:
             subcat = "Full"
 
+        if subcat == "Full" and len(name) < 6 and name.find(' ') == -1:
+            subcat = "Short"
+
         if subcat == "Full":
-            if (name[1].islower() and name[0].isupper()):
+            end = name.find(' ')
+
+            if end == -1:
+                end = len(name)
+
+            if (name[0].isupper() and name[1:end].islower()):
                 name = "{}{}".format(name[0].lower(), name[1:])
 
             while name.startswith("uncharacterized protein ") or \
@@ -362,7 +375,7 @@ class Parser(AbstractLoader):
                 else:
                     name = name[9:]
 
-                if ' ' not in name and len(name) < 16:
+                if len(name) < 16 and ' ' not in name:
                     subcat = "Short"
 
             comma = name.rfind(', ')
@@ -375,7 +388,7 @@ class Parser(AbstractLoader):
                 return 0
 
         if self._name_cat == 'RecName':
-            if subcat == 'Full':
+            if subcat == 'Full' and not self.record.name:
                 self.record.name = name
             elif subcat == 'Short' and not self.record.symbol:
                 self.record.symbol = name
@@ -452,13 +465,16 @@ class Parser(AbstractLoader):
         mo = Parser.DR_RE.match(line)
         namespace = mo.group('namespace')
 
-        if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
-            assert mo.group('accessions')[-1] == '.', mo.group('accessions')
+        try:
+            if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
+                assert mo.group('accessions')[-1] == '.', mo.group('accessions')
 
-            for db_ref in TRANSLATE[namespace]([
-                i.strip() for i in mo.group('accessions')[:-1].split(';')
-            ]):
-                self.record.addDBRef(db_ref)
+                for db_ref in TRANSLATE[namespace]([
+                    i.strip() for i in mo.group('accessions')[:-1].split(';')
+                ]):
+                    self.record.addDBRef(db_ref)
+        except KeyError:
+            logging.warning("unknown Namespace '%s'", namespace)
 
         return 0
 

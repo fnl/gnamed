@@ -107,6 +107,7 @@ TRANSLATE = {
 # two or more genes, but the official organism DB only has one gene)
 DUPLICATE_REFS = {
     # {GI: {(NS, ACC), ...}, ...}
+    '296420': frozenset({(Namespace.rgd, '1305479')}),
     '444339': frozenset({(Namespace.xenbase, 'XB-GENEPAGE-6086059')}),
 }
 
