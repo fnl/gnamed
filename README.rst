@@ -55,12 +55,12 @@ Supported Repositories
 - HGNC (key: ``hgnc``)
 - MGI/MGD (key: ``mgd``)
 - RGD (key: ``rgd``)
+- SGD (key: ``sgd``)
 - TAIR (key: ``tair``)
 - UniProt (key: ``uniprot``)
 
-Planned: ECOCYC, FlyBase, PomBase, SGD, TAIR, WormBase, XenBase
+Planned: ECOCYC (maybe), FlyBase, PomBase, WormBase, XenBase
 
-- SGD (key: ``sgd``)
 
 Requirements
 ============
