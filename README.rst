@@ -52,12 +52,15 @@ Supported Repositories
 ======================
 
 - Entrez Gene (key: ``entrez``)
-- UniProt (key: ``uniprot``)
 - HGNC (key: ``hgnc``)
 - MGI/MGD (key: ``mgd``)
 - RGD (key: ``rgd``)
+- TAIR (key: ``tair``)
+- UniProt (key: ``uniprot``)
 
 Planned: ECOCYC, FlyBase, PomBase, SGD, TAIR, WormBase, XenBase
+
+- SGD (key: ``sgd``)
 
 Requirements
 ============

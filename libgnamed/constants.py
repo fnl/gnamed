@@ -48,8 +48,17 @@ REPOSITORIES = {
             ('MRK_SwissProt_TrEMBL.rpt', 'MRK_SwissProt_TrEMBL.rpt', 'UTF-8'),
             ('MGI_EntrezGene.rpt', 'MGI_EntrezGene.rpt', 'UTF-8'),
         ],
-        'description': 'Mouse Geneome Datbase text files',
+        'description': 'Mouse Geneome Database text files',
     },
+    'tair': {
+        'url': 'ftp://ftp.arabidopsis.org/home/tair/Genes/',
+        'resources': [
+            ('Locus_Primary_Gene_Symbol_20130117.txt', 'gene_names.txt', 'UTF-8'),
+            ('gene_aliases.20120207.txt', 'gene_aliases.txt', 'UTF-8'),
+            ('TAIR10_genome_release/TAIR10_NCBI_mapping_files/TAIR10_NCBI_GENEID_mapping', 'entrez2tair.txt', 'UTF-8'),
+        ],
+        'description': 'The A. thaliana database gene name and alias files',
+    }
     }
 
 class Namespace:
