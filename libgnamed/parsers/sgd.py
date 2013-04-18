@@ -6,7 +6,6 @@
 .. License: GNU Affero GPL v3 (http://www.gnu.org/licenses/agpl.html)
 """
 import io
-import logging
 
 from collections import namedtuple
 
