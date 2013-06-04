@@ -16,7 +16,7 @@ Entity Relationship Model
 
     [SpeciesName] → [Species*]
                          ↑
-    [EntityString] → [Entity] ← [EntityRef] ← [PubMedRef]
+    [EntityString] → [Entity] ← [EntityRef] | ← [Entity2PubMed]
                        ↑  ↑
                      <mapping>
 
@@ -42,13 +42,13 @@ EntityRef (entity_refs)
   **namespace**:VARCHAR(8), **accession**:VARCHAR(64),
   symbol:VARCHAR(64), name:TEXT, id:FK(Entity)
 
-PubMedRef (entity2pubmed)
-  **namespace**:VARCHAR(8), **accession**:VARCHAR(64), **pmid**:INT
+Entity2PubMed (entity2pubmed)
+  **id**:FK(Entity), **pmid**:INT
 
 EntityString (entity_strings)
   **id**:FK(Entity), **cat**:VARCHAR(32), **value**:TEXT
 
-- **bold** (Compound) Primary Key
+- **bold** (Composite) Primary Key
 - *italic* NOT NULL
 - ``Entity`` can be either "Gene" or "Protein"
 - ``entity`` can be either "gene" or "protein"
