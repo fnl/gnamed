@@ -379,6 +379,6 @@ class SpeedLoader(Parser):
                 )
 
         for pmid in record.pmids:
-            self._gene2pmids.write('{}\t{}\n'.format(gid, pmid))
+            self._gene2pmids.write('{}\t{}\n'.format(pmid, gid))
 
         self._gene_id += 1
