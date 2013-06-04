@@ -138,7 +138,9 @@ class Parser(AbstractLoader):
         if not hasattr(self, '_fileno'):
             self._fileno = 0
 
-        if stream.name.startswith('gene_info'):
+        idx = stream.name.rfind('/') + 1
+
+        if stream.name.startswith('gene_info', idx):
             if not hasattr(self, '_pmidMapping'):
                 raise RuntimeError(
                     'gene_info must be after gene2pubmed file')
@@ -146,7 +148,7 @@ class Parser(AbstractLoader):
                           len(self._pmidMapping))
             self._parse = self._parseMain
             self._fileno += 1
-        elif stream.name.startswith('gene2pubmed'):
+        elif stream.name.startswith('gene2pubmed', idx):
             if self._fileno != 0:
                 raise RuntimeError('gene2pubmed file not parsed first')
             self._pmidMapping = defaultdict(set)
