@@ -523,6 +523,7 @@ class SpeedLoader(Parser):
         self._proteins = io.StringIO()
         self._protein_refs = io.StringIO()
         self._protein_strings = io.StringIO()
+        self._protein2pubmed = io.StringIO()
         self._mappings = io.StringIO()
 
     def _loadExistingLinks(self):
@@ -552,6 +553,7 @@ class SpeedLoader(Parser):
             cur.copy_from(stream(self._proteins), 'proteins')
             cur.copy_from(stream(self._protein_refs), 'protein_refs')
             cur.copy_from(stream(self._protein_strings), 'protein_strings')
+            cur.copy_from(stream(self._protein2pubmed), 'protein2pubmed')
             cur.copy_from(stream(self._mappings), 'genes2proteins')
             cur.execute("ALTER SEQUENCE proteins_id_seq RESTART WITH %s",
                         (self._protein_id,))
@@ -599,6 +601,9 @@ class SpeedLoader(Parser):
                 self._protein_strings.write(
                     '{}\t{}\t{}\n'.format(pid, cat, val)
                 )
+
+        for pmid in record.pmids:
+            self._protein2pubmed.write('{}\t{}\n'.format(pmid, pid))
 
         gene_ids = set()
 
