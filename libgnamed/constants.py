@@ -14,8 +14,11 @@ REPOSITORIES = {
         },
     'entrez': {
         'url': 'ftp://ftp.ncbi.nih.gov/gene/DATA/',
-        'resources': [('gene_info.gz', 'gene_info.gz', None)],
-        'description': "NCBI Entrez Gene gene_info file",
+        'resources': [
+            ('gene_info.gz', 'gene_info.gz', None),
+            ('gene2pubmed.gz', 'gene2pubmed.gz', None),
+        ],
+        'description': "NCBI Entrez Gene gene2pubmed and gene_info file",
         },
     'uniprot': {
         'url': 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/'
@@ -41,7 +44,7 @@ REPOSITORIES = {
         ],
         'description': "Rat Genome Database rat GENE text file",
     },
-    'mgd': {
+    'mgi': {
         'url': 'ftp://ftp.informatics.jax.org/pub/reports/',
         'resources': [
             ('MRK_List1.rpt', 'MRK_List1.rpt', 'UTF-8'),
@@ -60,7 +63,6 @@ REPOSITORIES = {
         'description': 'The A. thaliana database gene name and alias files',
     },
     'sgd': {
-
         'url': 'http://yeastmine.yeastgenome.org/yeastmine/service/query/results?',
         'resources': [
             # SGDID, Qualifier(Verified, Uncharacterized, Dubious, NULL), Std Name(Symbol OR NULL - use Systematic Name then), Name OR NULL, Systematic Name(Location, 2nd char = chromosome), Length OR NULL, Protein Name OR NULL, Alias(incl. Std Name and Systematic Name)
@@ -68,6 +70,15 @@ REPOSITORIES = {
         ],
         'description': 'Yeast Genome Database gene (and protein) names',
     },
+    'flybase': {
+        'url': 'ftp://ftp.flybase.net/releases/current/precomputed_files/',
+        'resources': [
+            ('synonyms/fb_synonym_fb_2013_03.tsv.gz', 'fb_synonym.tsv.gz', None),
+            ('genes/fbgn_NAseq_Uniprot_fb_2013_03.tsv.gz', 'fbgn_NAseq_Uniprot.tsv.gz', None),
+
+        ],
+        'description': 'FlyBase D. melanogaster gene names and alias files',
+    }
 }
 
 class Namespace:

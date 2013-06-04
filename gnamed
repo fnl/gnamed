@@ -22,13 +22,13 @@ for a in sys.argv:
 
 if _cmd == 'fetch':
     _usage = "%(prog)s [options] fetch KEY [KEY...]"
-    _description = "download a gene/protein name repository"
+    _description = "download a repository"
 elif _cmd == 'init':
     _usage = "%(prog)s [options] init FILE FILE FILE"
-    _description = "initialize the gene/protein name DB"
+    _description = "initialize the DB"
 elif _cmd == 'load':
     _usage = "%(prog)s [options] load KEY FILE [FILE...]"
-    _description = "load a gene/protein name repository in the DB"
+    _description = "load a repository into the DB"
 else:
     _usage = "%(prog)s [options] CMD [args...]"
     _description = "bootstrap a gene/protein name repository"
@@ -58,7 +58,7 @@ parser.add_argument(
 if _cmd in ('init', 'load'):
     parser.add_argument(
         '--database', metavar='DB', action='store',
-        default=os.getenv('PGDATABASE', "gnamed"),
+        default=os.getenv('PGDATABASE', "gnamed_tmp"),
         help="database name [PGDATABASE=%(default)s]"
     )
     parser.add_argument(

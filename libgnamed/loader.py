@@ -9,12 +9,13 @@ import logging
 
 from collections import defaultdict, namedtuple
 from libgnamed.constants import GENE_SPACES, PROTEIN_SPACES, SPECIES_SPACES, Namespace
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import and_
 from sys import getdefaultencoding
 
 from libgnamed.orm import\
-    Gene, Protein, GeneRef, ProteinRef, GeneString, ProteinString, mapping
+    Gene, Protein, GeneRef, ProteinRef, GeneString, ProteinString, mapping, Gene2PubMed, Protein2PubMed
 from libgnamed.parsers import AbstractParser
 
 DBRef = namedtuple('DBRef', ['namespace', 'accession'])
@@ -54,6 +55,7 @@ class AbstractRecord:
         self.strings = defaultdict(set)
         self.refs = set()
         self.mappings = set()
+        self.pmids = set()
 
         if symbol:
             self.addSymbol(symbol)
@@ -81,6 +83,9 @@ class AbstractRecord:
 
     def addString(self, cat:str, value:str):
         self.strings[cat].add(value)
+
+    def addPubMedId(self, pmid:int):
+        self.pmids.add(pmid)
 
     def _sameSpecies(self, db_ref:DBRef) -> bool:
         ns_species = SPECIES_SPACES[db_ref.namespace]
@@ -159,8 +164,8 @@ class AbstractLoader(AbstractParser):
         """
         Write session objects into the DB to allow the GC to free some memory.
         """
-        self.db_refs = {}
         self.session.flush()
+        self.db_refs = {}
 
     def _loadRecord(self, db_key:DBRef, record:AbstractRecord):
         """
@@ -212,6 +217,7 @@ class AbstractLoader(AbstractParser):
             OtherRef = ProteinRef
             Entity = Gene
             EntityString = GeneString
+            Entity2PubMed = Gene2PubMed
             entity_col = mapping.c.gene_id
             other_col = mapping.c.protein_id
             entity_name = 'gene'
@@ -221,6 +227,7 @@ class AbstractLoader(AbstractParser):
             OtherRef = GeneRef
             Entity = Protein
             EntityString = ProteinString
+            Entity2PubMed = Protein2PubMed
             entity_col = mapping.c.protein_id
             other_col = mapping.c.gene_id
             entity_name = 'protein'
@@ -234,11 +241,13 @@ class AbstractLoader(AbstractParser):
             # SELECT * FROM <entity>_refs
             #     LEFT OUTER JOIN <entity>s USING (id)
             #     LEFT OUTER JOIN <entity>_strings USING (id)
+            #     LEFT OUTER JOIN <entity>2pubmed USING (id)
             #     WHERE <entity>_refs.namespace IN (...)
             #         AND <entity>_refs.accession IN (...);
             for db_ref in self.session.query(EntityRef).options(
                 joinedload(getattr(EntityRef, entity_name)),
                 joinedload(entity_name + '.strings'),
+                joinedload(entity_name + '.pmids')
                 ).filter(and_(EntityRef.namespace.in_(ns_list),
                               EntityRef.accession.in_(acc_list))):
                 key = DBRef(db_ref.namespace, db_ref.accession)
@@ -316,9 +325,21 @@ class AbstractLoader(AbstractParser):
                 entity.strings.append(obj)
                 self.session.add(obj)
 
+        # update the PubMed references (entity2pubmed)
+        known = set()
+
+        for p in entity.pmids:
+            known.add(p.pmid)
+
+        for pmid in record.pmids.difference(known):
+            logging.debug('adding PMID:%s to %s', pmid, entity)
+            obj = Entity2PubMed(entity.id, pmid)
+            entity.pmids.append(obj)
+            self.session.add(obj)
+
         # update the entity mappings (genes2proteins)
         if record.mappings:
-            known = dict()
+            known = {}
             ns_list, acc_list = zip(*record.mappings)
 
             # SELECT * FROM <other>_refs

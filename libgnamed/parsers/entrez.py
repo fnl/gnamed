@@ -8,7 +8,7 @@
 import logging
 import io
 
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from sqlalchemy.schema import Sequence
 
 from libgnamed.constants import Namespace
@@ -39,9 +39,9 @@ COLNAME = {
     12: 'nomenclature_status',
     13: 'other_designations',
     14: 'modification_date',
-    }
+}
 
-# frequently found names in Entrez that are complete trash
+# frequently found names in Entrez that are just filler-trash
 # fields: synonyms, name, nomenclature name, other designations
 JUNK_NAMES = frozenset([
     'hypothetical protein',
@@ -56,7 +56,8 @@ JUNK_NAMES = frozenset([
     'similar to polypeptide',
     'similar to polyprotein',
     'similar to predicted protein',
-    ])
+    'unnamed',
+])
 
 # "translation" of dbxref names to the local Namespace names
 TRANSLATE = {
@@ -93,31 +94,32 @@ TRANSLATE = {
     'PBR': None,
     'PFAM': None,
     'PseudoCap': None,
-    'UniProtKB/Swiss-Prot': None, # do not map those five (...) references
+    'UniProtKB/Swiss-Prot': None, # not worth mapping those five references...
     'VBRC': None,
     'VectorBase': None,
     'Vega': None,
     'Vegambl': None,
     'ZFIN': None,
 
-    }
+}
 
+# TODO: find a better, generic solutions for this...
 # For duplicate xrefs in different Entrez Genes, list the reference(s)
 # that should not be used here (i.e., essentially entries where Entrez lists
 # two or more genes, but the official organism DB only has one gene)
-DUPLICATE_REFS = {
-    # {GI: {(NS, ACC), ...}, ...}
-    '296420': frozenset({(Namespace.rgd, '1305479')}),
-    '444339': frozenset({(Namespace.xenbase, 'XB-GENEPAGE-6086059')}),
-}
-
-EMPTY_SET = frozenset()
+# DUPLICATE_REFS = {
+#     # {GI: {(NS, ACC), ...}, ...}
+#     '296420': frozenset({(Namespace.rgd, '1305479')}),
+#     '444339': frozenset({(Namespace.xenbase, 'XB-GENEPAGE-6086059')}),
+# }
+# EMPTY_SET = frozenset()
 
 def isGeneSymbol(sym:str) -> bool:
     """
-    Return ``true`` if `sym` fits into a GeneSymbol field and has no spaces.
+    Return ``true`` if `sym` fits into a GeneSymbol field and has no spaces
+    or is very short.
     """
-    return len(sym) < 65 and " " not in sym
+    return len(sym) < 65 and (len(sym) < 17 or " " not in sym)
 
 
 class Parser(AbstractLoader):
@@ -128,11 +130,41 @@ class Parser(AbstractLoader):
     """
 
     def _setup(self, stream:io.TextIOWrapper):
+        assert len(self.files) == 2, \
+            'received {} files, expected 2'.format(len(self.files))
         lines = super(Parser, self)._setup(stream)
         logging.debug("file header:\n%s", stream.readline().strip())
+
+        if not hasattr(self, '_fileno'):
+            self._fileno = 0
+
+        if stream.name.startswith('gene_info'):
+            if not hasattr(self, '_pmidMapping'):
+                raise RuntimeError(
+                    'gene_info must be after gene2pubmed file')
+            logging.debug("parsed PubMed mappings for %d genes",
+                          len(self._pmidMapping))
+            self._parse = self._parseMain
+            self._fileno += 1
+        elif stream.name.startswith('gene2pubmed'):
+            if self._fileno != 0:
+                raise RuntimeError('gene2pubmed file not parsed first')
+            self._pmidMapping = defaultdict(set)
+            self._parse = self._parsePubMed
+            self._fileno += 1
+        else:
+            raise RuntimeError('unknown Entrez file "{}"'.format(stream.name))
+
         return lines + 1
 
-    def _parse(self, line:str):
+    def _parsePubMed(self, line:str):
+        logging.debug('reading %s', line)
+        _, gi, pmid = line.split('\t')
+        self._pmidMapping[gi].add(int(pmid))
+        logging.debug('size=%d',len(self._pmidMapping))
+        return 0
+
+    def _parseMain(self, line:str):
         # remove the backslash junk in the Entrez data file
         idx = line.find('\\')
 
@@ -164,7 +196,7 @@ class Parser(AbstractLoader):
 
         row = Line._make(items)
         # example of a bad symbol: gi:835054 (but accepted)
-        assert not row.symbol or len(row.symbol) < 65,\
+        assert not row.symbol or len(row.symbol) < 65, \
             '{}:{} has an illegal symbol="{}"'.format(
                 Namespace.entrez, row.id, row.symbol
             )
@@ -178,10 +210,10 @@ class Parser(AbstractLoader):
 
         # separate existing DB links and new DB references
         if row.dbxrefs:
-            if row.id in DUPLICATE_REFS:
-                duplicates = DUPLICATE_REFS[row.id]
-            else:
-                duplicates = EMPTY_SET
+            #if row.id in DUPLICATE_REFS:
+            #    duplicates = DUPLICATE_REFS[row.id]
+            #else:
+            #    duplicates = EMPTY_SET
 
             for xref in row.dbxrefs.split('|'):
                 db, acc = xref.split(':')
@@ -190,8 +222,9 @@ class Parser(AbstractLoader):
                     if TRANSLATE[db]:
                         db_ref = DBRef(TRANSLATE[db], acc)
 
-                        if db_ref not in duplicates:
-                            record.addDBRef(db_ref)
+                        #if db_ref not in duplicates:
+                        #    record.addDBRef(db_ref)
+                        record.addDBRef(db_ref)
                 except KeyError:
                     logging.warn('unknown dbXref to "%s"', db)
 
@@ -209,8 +242,8 @@ class Parser(AbstractLoader):
             for sym in row.synonyms.split('|'):
                 sym = sym.strip()
 
-                if sym != "unnamed" and sym.lower() not in JUNK_NAMES:
-                    if isGeneSymbol(sym) or len(sym) < 17:
+                if sym.lower() not in JUNK_NAMES:
+                    if isGeneSymbol(sym):
                         record.addSymbol(sym)
                     else:
                         record.addName(sym)
@@ -234,6 +267,10 @@ class Parser(AbstractLoader):
         if row.type_of_gene and row.type_of_gene not in ('other', 'unknown'):
             record.addKeyword(row.type_of_gene)
 
+        # add the PubMed links parsed earlier (if any):
+        if db_key.accession in self._pmidMapping:
+            record.pmids = self._pmidMapping[db_key.accession]
+
         self._loadRecord(db_key, record)
         return 1
 
@@ -255,6 +292,7 @@ class SpeedLoader(Parser):
         self._genes = io.StringIO()
         self._gene_refs = io.StringIO()
         self._gene_strings = io.StringIO()
+        self._gene2pmids = io.StringIO()
         #self._mappings = io.StringIO()
 
     def _setup(self, stream:io.TextIOWrapper) -> int:
@@ -268,6 +306,7 @@ class SpeedLoader(Parser):
 
     def _connect(self):
         import psycopg2
+
         self._conn = psycopg2.connect(self._dsn)
 
     def _loadExistingLinks(self):
@@ -287,9 +326,10 @@ class SpeedLoader(Parser):
             cur.copy_from(stream(self._genes), 'genes')
             cur.copy_from(stream(self._gene_refs), 'gene_refs')
             cur.copy_from(stream(self._gene_strings), 'gene_strings')
+            cur.copy_from(stream(self._gene2pmids), 'gene2pubmed')
             #cur.copy_from(stream(self._mappings), 'genes2proteins')
             cur.execute("ALTER SEQUENCE genes_id_seq RESTART WITH %s",
-                (self._gene_id,))
+                        (self._gene_id,))
         finally:
             cur.close()
 
@@ -335,5 +375,8 @@ class SpeedLoader(Parser):
                 self._gene_strings.write(
                     '{}\t{}\t{}\n'.format(gid, cat, val)
                 )
+
+        for pmid in record.pmids:
+            self._gene2pmids.write('{}\t{}\n'.format(gid, pmid))
 
         self._gene_id += 1

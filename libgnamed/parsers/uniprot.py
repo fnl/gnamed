@@ -5,51 +5,15 @@
 .. moduleauthor:: Florian Leitner <florian.leitner@gmail.com>
 .. License: GNU Affero GPL v3 (http://www.gnu.org/licenses/agpl.html)
 """
+from libgnamed.orm import Species
 import re
 import io
 import logging
 
-from libgnamed.constants import Namespace, Species
+from libgnamed.constants import Namespace, Species as SpeciesIds
 from libgnamed.loader import ProteinRecord, AbstractLoader, DBRef
 from sqlalchemy.schema import Sequence
 
-# Species in OX lines mapped to NCBI_TaxID values that do not exist
-# will be mapped to Species.unidentified
-WRONG_SPECIES_MAPPINGS = frozenset({
-    101621,
-    1054147,
-    1094619,
-    1136501,
-    1173522,
-    1217067,
-    179404,
-    2196,
-    262966,
-    292145,
-    30256,
-    31509,
-    31697,
-    31758,
-    34177,
-    35272,
-    36397,
-    37552,
-    37555,
-    391167,
-    40036,
-    40257,
-    489502,
-    497361,
-    51796,
-    587201,
-    587202,
-    587203,
-    61282,
-    70702,
-    70735,
-    70897,
-    88207,
-})
 
 def translate_BioCyc(items:list):
     ns, acc = items[0].split(':')
@@ -235,7 +199,7 @@ TRANSLATE = {
     'WormBase': translate_WormBase,
     'Xenbase': translate_Xenbase,
     'ZFIN': None,
-    }
+}
 
 
 class Parser(AbstractLoader):
@@ -259,17 +223,21 @@ class Parser(AbstractLoader):
             return 0
 
         self._dispatcher = {"ID": self._parseID, "AC": self._parseAC,
-                            #"DT": self._parseDT,
-                            "DE": self._parseDE,
-                            "GN": self._parseGN, "OX": self._parseOX,
+                            "DE": self._parseDE, "GN": self._parseGN,
+                            "OX": self._parseOX, "RX": self._parseRX,
                             "DR": self._parseDR, "KW": self._parseKW,
                             "SQ": self._parseSQ, "//": self._parseEND,
+                            #"DT": self._parseDT,
                             "OS": skip, "OG": skip, "OC": skip, "OH": skip,
-                            "RN": skip, "RP": skip, "RC": skip, "RX": skip,
-                            "RG": skip, "RA": skip, "RT": skip, "RL": skip,
-                            "CC": skip, "PE": skip, "FT": skip,
-                            "DT": skip,
-                            }
+                            "RN": skip, "RP": skip, "RC": skip, "RG": skip,
+                            "RA": skip, "RT": skip, "RL": skip, "CC": skip,
+                            "PE": skip, "FT": skip, "DT": skip,
+        }
+
+        # UniProt sometimes has species not (yet) in the NCBI Taxonomy
+        # to avoid issues, simply map these to the "unknown" species
+        # however, to do this, we need to know all valid species IDs:
+        self._species_ids = frozenset(self.session.query(Species.id))
 
         return lines
 
@@ -317,17 +285,17 @@ class Parser(AbstractLoader):
 
         return 0
 
-#    DT_RE = re.compile(
-#        'DT\s+\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.'
-#    )
-#
-#    def _parseDT(self, line:str):
-#        mo = Parser.DT_RE.match(line)
-#
-#        if mo:
-#            self.record.version = mo.group('version')
-#
-#        return 0
+    #    DT_RE = re.compile(
+    #        'DT\s+\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.'
+    #    )
+    #
+    #    def _parseDT(self, line:str):
+    #        mo = Parser.DT_RE.match(line)
+    #
+    #        if mo:
+    #            self.record.version = mo.group('version')
+    #
+    #        return 0
 
     DE_RE = re.compile(
         'DE\s+(?:(?P<category>(?:Rec|Alt|Sub)Name|Flags|Contains|Includes):)?(?:\s*(?P<subcategory>[^=]+)(?:=(?P<name>.+))?)?'
@@ -348,10 +316,12 @@ class Parser(AbstractLoader):
         assert name[-1] == ';', name
         name = name[:-1]
 
-        # clean names ending with a backslash in TrEMBL
+        # remove backslash on names ending with a backslash in TrEMBL
         while name.endswith('\\'):
             name = name[:-1]
 
+        # swap rather peculiar short and full name assignments
+        # treat the former as symobl and the latter as name
         if subcat == "Short" and len(name) > 16 and ' ' in name:
             subcat = "Full"
 
@@ -367,24 +337,24 @@ class Parser(AbstractLoader):
             if (name[0].isupper() and name[1:end].islower()):
                 name = "{}{}".format(name[0].lower(), name[1:])
 
-            while name.startswith("uncharacterized protein ") or \
-               name.startswith("putative ") or\
-               name.startswith("probable "):
-                if name.startswith("uncharacterized protein "):
-                    name = name[24:]
-                else:
-                    name = name[9:]
-
-                if len(name) < 16 and ' ' not in name:
-                    subcat = "Short"
+            if subcat == "Short" and name.startswith(
+                    "uncharacterized protein") or \
+                    name.startswith("putative ") or \
+                    name.startswith("probable ") or \
+                    name.startswith("similar to "):
+                return 0
 
             comma = name.rfind(', ')
 
             while comma != -1:
-                name = "{} {}".format(name[comma+2:], name[:comma])
+                name = "{} {}".format(name[comma + 2:], name[:comma])
                 comma = name.rfind(', ')
 
-            if name == "uncharacterized protein":
+            if subcat == "Short" and name.startswith(
+                    "uncharacterized protein") or \
+                    name.startswith("putative ") or \
+                    name.startswith("probable ") or \
+                    name.startswith("similar to "):
                 return 0
 
         if self._name_cat == 'RecName':
@@ -393,7 +363,7 @@ class Parser(AbstractLoader):
             elif subcat == 'Short' and not self.record.symbol:
                 self.record.symbol = name
             elif subcat == 'EC' and not self.record.symbol:
-                self.record.symbol = "EC{}".format(name)
+                self.record.symbol = name
 
         if subcat == 'Full':
             self.record.addName(name)
@@ -448,14 +418,29 @@ class Parser(AbstractLoader):
         if species:
             species = int(species)
 
-            if species in WRONG_SPECIES_MAPPINGS:
-                logging.debug('wrong TaxID for %s (%s)',
-                              self.db_key.accession, self._id)
-                species = Species.unidentified
+            if species not in self._species_ids:
+                logging.debug('unknown species ID=%d for %s (%s)',
+                             species, self.db_key.accession, self._id)
+                species = SpeciesIds.unidentified
+            else:
+                logging.debug('known species ID=%d for %s (%s)',
+                              species, self.db_key.accession, self._id)
+
 
             self.record.species_id = species
 
         return 0
+
+    RX_RE = re.compile('OX\s+.*?PubMed\s*=\s*(?P<pmid>\d+);?')
+
+    def _parseRX(self, line:str):
+        pmid = Parser.RX_RE.match(line).group('pmid')
+
+        if pmid:
+            self.record.pmids.add(int(pmid))
+
+        return 0
+
 
     DR_RE = re.compile(
         'DR\s+(?P<namespace>[\w/\-]+)\s*;\s+(?P<accessions>.*)'
@@ -467,7 +452,8 @@ class Parser(AbstractLoader):
 
         try:
             if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
-                assert mo.group('accessions')[-1] == '.', mo.group('accessions')
+                assert mo.group('accessions')[-1] == '.', mo.group(
+                    'accessions')
 
                 for db_ref in TRANSLATE[namespace]([
                     i.strip() for i in mo.group('accessions')[:-1].split(';')
@@ -507,6 +493,7 @@ class Parser(AbstractLoader):
         self._id = None
         self._name_cat = None
         return 1
+
 
 class SpeedLoader(Parser):
     """
@@ -551,6 +538,7 @@ class SpeedLoader(Parser):
 
     def _connect(self):
         import psycopg2
+
         self._conn = psycopg2.connect(self._dsn)
 
     def _flush(self):
@@ -566,7 +554,7 @@ class SpeedLoader(Parser):
             cur.copy_from(stream(self._protein_strings), 'protein_strings')
             cur.copy_from(stream(self._mappings), 'genes2proteins')
             cur.execute("ALTER SEQUENCE proteins_id_seq RESTART WITH %s",
-                (self._protein_id,))
+                        (self._protein_id,))
         finally:
             cur.close()
 

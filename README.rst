@@ -5,7 +5,9 @@ A script to download gene/protein name records, bootstrap a database to store
 them, and load the gene/protein names into that datastore, unifying the names
 across multiple repositories into single, species-specific gene and protein
 records. The datastore differentiates between names and symbols. The main
-("official") name and symbol for each originating repository is retained.
+("official") name and symbol for each originating repository is retained. For
+all symbols, it collects "relevant" links to PubMed abstracts from Entrez
+and UniProt records.
 
 Entity Relationship Model
 =========================
@@ -14,7 +16,7 @@ Entity Relationship Model
 
     [SpeciesName] → [Species*]
                          ↑
-    [EntityString] → [Entity] ← [EntityRef]
+    [EntityString] → [Entity] ← [EntityRef] ← [PubMedRef]
                        ↑  ↑
                      <mapping>
 
@@ -40,6 +42,9 @@ EntityRef (entity_refs)
   **namespace**:VARCHAR(8), **accession**:VARCHAR(64),
   symbol:VARCHAR(64), name:TEXT, id:FK(Entity)
 
+PubMedRef (entity2pubmed)
+  **namespace**:VARCHAR(8), **accession**:VARCHAR(64), **pmid**:INT
+
 EntityString (entity_strings)
   **id**:FK(Entity), **cat**:VARCHAR(32), **value**:TEXT
 
@@ -52,8 +57,9 @@ Supported Repositories
 ======================
 
 - Entrez Gene (key: ``entrez``)
+- FlyBase (key: ``flybase``)
 - HGNC (key: ``hgnc``)
-- MGI/MGD (key: ``mgd``)
+- MGI/MGD (key: ``mgi``)
 - RGD (key: ``rgd``)
 - SGD (key: ``sgd``)
 - TAIR (key: ``tair``)
@@ -110,8 +116,8 @@ Usage
 Fetch and load any repository as required; e.g.::
 
     gnamed fetch entrez -d /tmp
-    gunzip /tmp/gene_info.gz
-    gnamed load entrez /tmp/gene_info
+    gunzip /tmp/gene_info.gz /tmp/gene2pubmed.gz
+    gnamed load entrez /tmp/gene2pubmed /tmp/gene_info
 
 Sometimes, repositories are downloaded as text files; e.g.::
 
@@ -166,7 +172,7 @@ two UniProt files may be fast-loaded and finally all other repositories should
 be added in any preferred order. To activate the fast loader instead of the
 regular Parser/ORM mechanism, append the suffix ``pg`` to the repository key,
 e.g., to fast load Entrez into a Postgres DB use:
-``gnamed load entrezpg gene_info``.
+``gnamed load entrezpg gene2pubmed gene_info``.
 
 Note that if you decide to use SQLight as your DB, the way the ORM dumps data
 into it is nearly as quick as using ``COPY FROM`` stream. Therefore, for this
@@ -177,9 +183,9 @@ Truncating UniProt Files
 
 Particularly loading the TrEMBL data can be daunting, because the corresponding
 UniProt flatfile dump is huge (several GB *compressed*). To reduce the size of
-the UniProt files, all unnecessary lines can be removed from the dump files::
+the UniProt data, all unnecessary lines can be removed from the dump files::
 
-    grep "^\(ID\|AC\|DT\|DE\|GN\|OX\|DR\|KW\|SQ\|//\)" uniprot_trembl.dat > uniprot_trembl.min.dat
+    grep "^\(ID\|AC\|DT\|DE\|GN\|OX\|RX\|DR\|KW\|SQ\|//\)" uniprot_trembl.dat > uniprot_trembl.min.dat
 
 It is possible to load the UniProt files separately or even only load
 SwissProt::

@@ -121,6 +121,7 @@ class Gene(_Base):
 
     strings = relationship('GeneString', cascade='all', backref='gene')
     refs = relationship('GeneRef', cascade='all', backref='gene')
+    pmids = relationship('Gene2PubMed', cascade='all', backref='gene')
     proteins = relationship('Protein', secondary=mapping, backref='genes')
 
     def __init__(self, species_id:int, chromosome:str=None, location:str=None):
@@ -148,6 +149,7 @@ class Protein(_Base):
 
     strings = relationship('ProteinString', cascade='all', backref='protein')
     refs = relationship('ProteinRef', cascade='all', backref='protein')
+    pmids = relationship('Protein2PubMed', cascade='all', backref='protein')
     # genes = relationship('Gene', secondary=mapping, backref='proteins')
 
     def __init__(self, species_id:int, mass:int=None, length:int=None):
@@ -213,6 +215,52 @@ class ProteinRef(EntityRef, _Base):
 
     def __repr__(self) -> str:
         return "<ProteinDBRef:{}:{}>".format(self.namespace, self.accession)
+
+
+class Entity2PubMed:
+
+    pmid = Column(Integer, primary_key=True)
+
+    def __init__(self, pmid):
+        self.pmid = pmid
+
+
+class Gene2PubMed(Entity2PubMed, _Base):
+
+    __tablename__ = 'gene2pubmed'
+
+    id = Column(BigInteger, ForeignKey(
+        'genes.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True)
+
+    def __init__(self, id:int, pmid:int):
+        super(Gene2PubMed, self).__init__(pmid)
+        self.id = id
+
+    def __str__(self) -> str:
+        return "gene:{}->PMID:{}".format(self.id, self.pmid)
+
+    def __repr__(self) -> str:
+        return "<Gene2PubMed:{}:{}>".format(self.id, self.pmid)
+
+
+class Protein2PubMed(Entity2PubMed, _Base):
+
+    __tablename__ = 'protein2pubmed'
+
+    id = Column(BigInteger, ForeignKey(
+        'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
+    ), primary_key=True)
+
+    def __init__(self, id:int, pmid:int):
+        super(Protein2PubMed, self).__init__(pmid)
+        self.id = id
+
+    def __str__(self) -> str:
+        return "protein:{}->PMID:{}".format(self.id, self.pmid)
+
+    def __repr__(self) -> str:
+        return "<Protein2PubMed:{}:{}>".format(self.id, self.pmid)
 
 
 class GeneString(_Base):
