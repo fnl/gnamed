@@ -81,6 +81,7 @@ TRANSLATE = {
     'dictyBase': None,
     'EcoGene': None,
     'Ensembl': None,
+    'GO': None,
     'HPRD': None,
     'HPRDmbl': None,
     'IMGT/GENE-DB': None,
@@ -100,19 +101,7 @@ TRANSLATE = {
     'Vega': None,
     'Vegambl': None,
     'ZFIN': None,
-
 }
-
-# TODO: find a better, generic solutions for this...
-# For duplicate xrefs in different Entrez Genes, list the reference(s)
-# that should not be used here (i.e., essentially entries where Entrez lists
-# two or more genes, but the official organism DB only has one gene)
-# DUPLICATE_REFS = {
-#     # {GI: {(NS, ACC), ...}, ...}
-#     '296420': frozenset({(Namespace.rgd, '1305479')}),
-#     '444339': frozenset({(Namespace.xenbase, 'XB-GENEPAGE-6086059')}),
-# }
-# EMPTY_SET = frozenset()
 
 def isGeneSymbol(sym:str) -> bool:
     """
@@ -147,6 +136,7 @@ class Parser(AbstractLoader):
             logging.debug("parsed PubMed mappings for %d genes",
                           len(self._pmidMapping))
             self._parse = self._parseMain
+            self._generefs = set()
             self._fileno += 1
         elif stream.name.startswith('gene2pubmed', idx):
             if self._fileno != 0:
@@ -184,6 +174,11 @@ class Parser(AbstractLoader):
         if items[2] == 'NEWENTRY':
             return 0
 
+        cleanChromosome = items[6].find('|')
+        # drop (too long!) chr. strings with multiple chromosomes listed 
+        if cleanChromosome != -1:
+            items[6] = items[6][0:cleanChromosome]
+
         for idx in range(len(items)):
             if items[idx] == '-': items[idx] = ""
 
@@ -212,11 +207,6 @@ class Parser(AbstractLoader):
 
         # separate existing DB links and new DB references
         if row.dbxrefs:
-            #if row.id in DUPLICATE_REFS:
-            #    duplicates = DUPLICATE_REFS[row.id]
-            #else:
-            #    duplicates = EMPTY_SET
-
             for xref in row.dbxrefs.split('|'):
                 db, acc = xref.split(':')
 
@@ -224,9 +214,9 @@ class Parser(AbstractLoader):
                     if TRANSLATE[db]:
                         db_ref = DBRef(TRANSLATE[db], acc)
 
-                        #if db_ref not in duplicates:
-                        #    record.addDBRef(db_ref)
-                        record.addDBRef(db_ref)
+                        if db_ref not in self._generefs:
+                            record.addDBRef(db_ref)
+                            self._generefs.add(db_ref)
                 except KeyError:
                     logging.warn('unknown dbXref to "%s"', db)
 
