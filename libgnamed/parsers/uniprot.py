@@ -2,6 +2,11 @@
 .. py:module:: uniprot
    :synopsis: A parser for UniProtKB text files.
 
+Accessions are used as the main reference for UniProt records.
+UniProt IDs (<species>_<protein> strings) and historic accessions are
+stored in the protein strings table using the category (cat) values
+"identifier" and "accession".
+
 .. moduleauthor:: Florian Leitner <florian.leitner@gmail.com>
 .. License: GNU Affero GPL v3 (http://www.gnu.org/licenses/agpl.html)
 """
@@ -78,6 +83,8 @@ TRANSLATE = {
     'BRENDA': None,
     'CAZy': None,
     'CGD': None,
+    'ChiTaRS': None,
+    'ChEMBL': None,
     'CleanEx': None,
     'COMPLUYEAST-2DPAGE': None,
     'ConoServer': None,
@@ -139,6 +146,7 @@ TRANSLATE = {
     'MGI': translate_MGI,
     'MIM': None,
     'MINT': None,
+    'mycoCLAP': None,
     'NextBio': None,
     'neXtProt': None,
     'OGP': None,
@@ -146,6 +154,7 @@ TRANSLATE = {
     'Orphanet': None,
     'OrthoDB': None,
     'PANTHER': None,
+    'PaxDb': None,
     'PATRIC': None,
     'PDB': None,
     'PDBsum': None,
@@ -178,8 +187,10 @@ TRANSLATE = {
     'RefSeq': None,
     'REPRODUCTION-2DPAGE': None,
     'RGD': translate_RGD,
+    'SABIO-RK': None,
     'SGD': translate_SGD,
     'Siena-2DPAGE': None,
+    'SignaLink': None,
     'SMART': None,
     'SMR': None,
     'STRING': None,
@@ -202,6 +213,11 @@ TRANSLATE = {
 }
 
 
+def skip(_):
+    "Skip line dummy functions."
+    return 0
+
+
 class Parser(AbstractLoader):
     """
     A parser for UniProtKB text files.
@@ -219,24 +235,22 @@ class Parser(AbstractLoader):
         self._name_state = None
         self._skip_sequence = False
 
-        def skip(line):
-            return 0
-
-        self._dispatcher = {"ID": self._parseID, "AC": self._parseAC,
-                            "DE": self._parseDE, "GN": self._parseGN,
-                            "OX": self._parseOX, "RX": self._parseRX,
-                            "DR": self._parseDR, "KW": self._parseKW,
-                            "SQ": self._parseSQ, "//": self._parseEND,
-                            #"DT": self._parseDT,
-                            "OS": skip, "OG": skip, "OC": skip, "OH": skip,
-                            "RN": skip, "RP": skip, "RC": skip, "RG": skip,
-                            "RA": skip, "RT": skip, "RL": skip, "CC": skip,
-                            "PE": skip, "FT": skip, "DT": skip,
+        # Set up a dispatcher pattern for parsing lines given the line
+        # type, which is defined by the first two letters on the line:
+        self._dispatcher = {
+            "ID": self._parseID, "AC": self._parseAC, "DE": self._parseDE,
+            "GN": self._parseGN, "OX": self._parseOX, "RX": self._parseRX,
+            "DR": self._parseDR, "KW": self._parseKW, "SQ": self._parseSQ,
+            "//": self._parseEND, #"DT": self._parseDT,
+            "OS": skip, "OG": skip, "OC": skip, "OH": skip,
+            "RN": skip, "RP": skip, "RC": skip, "RG": skip,
+            "RA": skip, "RT": skip, "RL": skip, "CC": skip,
+            "PE": skip, "FT": skip, "DT": skip,
         }
 
-        # UniProt sometimes has species not (yet) in the NCBI Taxonomy
-        # to avoid issues, simply map these to the "unknown" species
-        # however, to do this, we need to know all valid species IDs:
+        # UniProt sometimes has species not (yet) in the NCBI Taxonomy;
+        # To avoid issues, map these IDs to the "unknown" species ID;
+        # However, to do this, all valid species IDs need to be known:
         self._species_ids = frozenset(self.session.query(Species.id))
 
         return lines
@@ -284,6 +298,8 @@ class Parser(AbstractLoader):
             self.record.addString("accession", acc)
 
         return 0
+
+    # No place to store record versions; Would this be useful?
 
     #    DT_RE = re.compile(
     #        'DT\s+\d{2}\-[A-Z]{3}\-\d{4}, entry version (?P<version>\d+)\s*\.'
@@ -334,7 +350,7 @@ class Parser(AbstractLoader):
             if end == -1:
                 end = len(name)
 
-            if (name[0].isupper() and name[1:end].islower()):
+            if name[0].isupper() and name[1:end].islower():
                 name = "{}{}".format(name[0].lower(), name[1:])
 
             if subcat == "Short" and name.startswith(
@@ -413,31 +429,31 @@ class Parser(AbstractLoader):
     OX_RE = re.compile('OX\s+NCBI_TaxID\s*=\s*(?P<species>\d+);')
 
     def _parseOX(self, line:str):
-        species = Parser.OX_RE.match(line).group('species')
+        matched = Parser.OX_RE.match(line)
 
-        if species:
-            species = int(species)
+        if matched:
+            species = int(matched.group('species'))
 
+            # UniProt declares TaxIDs that sometimes don't (yet) exist...
             if species not in self._species_ids:
                 logging.debug('unknown species ID=%d for %s (%s)',
-                             species, self.db_key.accession, self._id)
+                              species, self.db_key.accession, self._id)
                 species = SpeciesIds.unidentified
             else:
                 logging.debug('known species ID=%d for %s (%s)',
                               species, self.db_key.accession, self._id)
 
-
             self.record.species_id = species
 
         return 0
 
-    RX_RE = re.compile('OX\s+.*?PubMed\s*=\s*(?P<pmid>\d+);?')
+    RX_RE = re.compile('RX\s+.*?PubMed\s*=\s*(?P<pmid>\d+);?')
 
     def _parseRX(self, line:str):
-        pmid = Parser.RX_RE.match(line).group('pmid')
+        matched = Parser.RX_RE.match(line)
 
-        if pmid:
-            self.record.pmids.add(int(pmid))
+        if matched:
+            self.record.pmids.add(int(matched.group('pmid')))
 
         return 0
 
@@ -448,9 +464,10 @@ class Parser(AbstractLoader):
 
     def _parseDR(self, line:str):
         mo = Parser.DR_RE.match(line)
-        namespace = mo.group('namespace')
+        namespace = None
 
         try:
+            namespace = mo.group('namespace')
             if TRANSLATE[namespace]: # raises KeyError if unknown NSs are added
                 assert mo.group('accessions')[-1] == '.', mo.group(
                     'accessions')
@@ -460,7 +477,9 @@ class Parser(AbstractLoader):
                 ]):
                     self.record.addDBRef(db_ref)
         except KeyError:
-            logging.warning("unknown Namespace '%s'", namespace)
+            logging.info("unknown Namespace '%s'", namespace)
+        except AttributeError:
+            pass
 
         return 0
 

@@ -60,6 +60,7 @@ class Parser(AbstractLoader):
     def _parseName(self, line:str):
         items = [i.strip() for i in line.split('\t')]
         if len(items) == 2:
+            # noinspection PyTypeChecker,PyTypeChecker
             items.append(None)
         elif len(items[2]) > 0 and items[2][0] == '"' and items[2][-1] == '"':
             items[2] = items[2][1:-1]
@@ -80,11 +81,13 @@ class Parser(AbstractLoader):
     def _parseAlias(self, line:str):
         items = [i.strip() for i in line.split('\t')]
         if len(items) == 2:
+            # noinspection PyTypeChecker,PyTypeChecker
             items.append(None)
         elif len(items[2]) > 0 and items[2][0] == '"' and items[2][-1] == '"':
             items[2] = items[2][1:-1]
         assert len(items) == 3, '{} items'.format(len(items))
         if len(items) == 2:
+            # noinspection PyTypeChecker
             items.append(None)
         db_key = DBRef(Namespace.tair, items[0])
 

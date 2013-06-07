@@ -185,12 +185,12 @@ Particularly loading the TrEMBL data can be daunting, because the corresponding
 UniProt flatfile dump is huge (several GB *compressed*). To reduce the size of
 the UniProt data, all unnecessary lines can be removed from the dump files::
 
-    grep "^\(ID\|AC\|DT\|DE\|GN\|OX\|RX\|DR\|KW\|SQ\|//\)" uniprot_trembl.dat > uniprot_trembl.min.dat
+    zcat uniprot_trembl.dat.gz | grep "^\(ID\|AC\|DE\|GN\|OX\|RX\|DR\|KW\|SQ\|//\)" > uniprot_trembl.min.dat
 
-It is possible to load the UniProt files separately or even only load
-SwissProt::
+It is possible to load the UniProt files separately or only load
+SwissProt; any file listed as argument will be parsed and loaded::
 
-    gnamed load uniprotpg uniprot_sprot.min.dat
+    gnamed load uniprotpg uniprot_sprot.dat uniprot_trembl.min.dat.gz
 
 License
 =======

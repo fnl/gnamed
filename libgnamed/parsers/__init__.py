@@ -9,6 +9,7 @@ import logging
 import sys
 import io
 
+from psycopg2 import Error
 from libgnamed.orm import Session
 from libgnamed.progress_bar import initBarForInfile
 
@@ -82,7 +83,6 @@ class AbstractParser:
                     if progress_bar is not None:
                         del progress_bar
 
-                    self.session.rollback()
                     logging.warn("%s while parsing line %s:\n%s",
                                  e.__class__.__name__, line_count,
                                  line.strip())
@@ -91,6 +91,9 @@ class AbstractParser:
                         logging.exception(e)
                     else:
                         logging.fatal(str(e).strip())
+
+                    if isinstance(e, Error):
+                        self.session.rollback()
 
                     return
 

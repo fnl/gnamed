@@ -8,13 +8,13 @@
 import logging
 
 from collections import defaultdict, namedtuple
-from libgnamed.constants import GENE_SPACES, PROTEIN_SPACES, SPECIES_SPACES, Namespace
-from sqlalchemy.exc import IntegrityError
+from libgnamed.constants import GENE_SPACES, PROTEIN_SPACES, SPECIES_SPACES, \
+    Namespace
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql.expression import and_
 from sys import getdefaultencoding
 
-from libgnamed.orm import\
+from libgnamed.orm import \
     Gene, Protein, GeneRef, ProteinRef, GeneString, ProteinString, mapping, Gene2PubMed, Protein2PubMed
 from libgnamed.parsers import AbstractParser
 
@@ -117,8 +117,8 @@ class GeneRecord(AbstractRecord):
 
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in GENE_SPACES:
-            if db_ref.namespace == Namespace.entrez or\
-               self._sameSpecies(db_ref):
+            if db_ref.namespace == Namespace.entrez or \
+                    self._sameSpecies(db_ref):
                 self.refs.add(db_ref)
         else:
             if db_ref.namespace != Namespace.uniprot:
@@ -137,8 +137,8 @@ class ProteinRecord(AbstractRecord):
 
     def addDBRef(self, db_ref:DBRef):
         if db_ref.namespace in PROTEIN_SPACES:
-            if db_ref.namespace == Namespace.uniprot or\
-               self._sameSpecies(db_ref):
+            if db_ref.namespace == Namespace.uniprot or \
+                    self._sameSpecies(db_ref):
                 self.refs.add(db_ref)
         else:
             if db_ref.namespace != Namespace.entrez:
@@ -244,12 +244,13 @@ class AbstractLoader(AbstractParser):
             #     LEFT OUTER JOIN <entity>2pubmed USING (id)
             #     WHERE <entity>_refs.namespace IN (...)
             #         AND <entity>_refs.accession IN (...);
+            # noinspection PyUnresolvedReferences
             for db_ref in self.session.query(EntityRef).options(
-                joinedload(getattr(EntityRef, entity_name)),
-                joinedload(entity_name + '.strings'),
-                joinedload(entity_name + '.pmids')
-                ).filter(and_(EntityRef.namespace.in_(ns_list),
-                              EntityRef.accession.in_(acc_list))):
+                    joinedload(getattr(EntityRef, entity_name)),
+                    joinedload(entity_name + '.strings'),
+                    joinedload(entity_name + '.pmids')
+            ).filter(and_(EntityRef.namespace.in_(ns_list),
+                          EntityRef.accession.in_(acc_list))):
                 key = DBRef(db_ref.namespace, db_ref.accession)
                 self.db_refs[key] = db_ref
 
@@ -347,11 +348,12 @@ class AbstractLoader(AbstractParser):
             #         ON <other>_refs.id = genes2proteins.<this>_id
             #     WHERE <other>_refs.namespace IN (...)
             #         AND <other>_refs.accession IN (...);
+            # noinspection PyUnresolvedReferences
             for ref, this_id in self.session.query(OtherRef,
                                                    entity_col).outerjoin(
-                mapping, OtherRef.id == other_col).filter(
-                and_(OtherRef.namespace.in_(ns_list),
-                     OtherRef.accession.in_(acc_list))):
+                    mapping, OtherRef.id == other_col).filter(
+                    and_(OtherRef.namespace.in_(ns_list),
+                         OtherRef.accession.in_(acc_list))):
                 if DBRef(ref.namespace, ref.accession) in record.mappings:
                     if ref.id not in known:
                         known[ref.id] = {this_id, }

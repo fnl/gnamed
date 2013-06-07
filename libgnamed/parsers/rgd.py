@@ -85,9 +85,11 @@ class Parser(AbstractLoader):
 
             if accs:
                 if ns == Namespace.uniprot:
+                    # noinspection PyUnresolvedReferences
                     for acc in accs.split(';'):
                         record.addDBRef(DBRef(ns, acc))
                 else:
+                    # noinspection PyUnresolvedReferences
                     accs = accs.split(';')
                     record.addDBRef(DBRef(ns, accs[0]))
 
@@ -115,7 +117,7 @@ class Parser(AbstractLoader):
 
         try:
             self._loadRecord(db_key, record)
-        except DuplicateEntityError as e:
+        except DuplicateEntityError:
             accs = getattr(row, Namespace.entrez)
 
             if accs:
@@ -133,6 +135,7 @@ class Parser(AbstractLoader):
 
                 # Update retired RGD and Entrez entries by pointing the outdated
                 # Refs to the right Gene (rgd_ref.id), while deleting the "duplicate" Genes.
+                # noinspection PyUnresolvedReferences
                 for gi in accs.split(';'):
                     entrez_ref = self.session.query(GeneRef).filter(
                         GeneRef.accession == gi
@@ -160,7 +163,7 @@ class Parser(AbstractLoader):
                 for gene in orphan_genes.values():
                     self.session.delete(gene)
 
-                self._flush();
+                self._flush()
                 self._loadRecord(db_key, record)
             else:
                 raise

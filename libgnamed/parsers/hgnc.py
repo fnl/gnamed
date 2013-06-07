@@ -124,6 +124,7 @@ class Parser(AbstractLoader):
 
             if acc:
                 if ns in FIX_ACCESSION:
+                    # noinspection PyUnresolvedReferences
                     acc = acc[acc.find(":") + 1:]
 
                 ref = DBRef(ns, acc)
