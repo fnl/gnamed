@@ -269,7 +269,7 @@ class GeneString(_Base):
     id = Column(BigInteger, ForeignKey(
         'genes.id', onupdate='CASCADE', ondelete='CASCADE'
     ), primary_key=True)
-    cat = Column(String(32), primary_key=True, index=True)
+    cat = Column(String(32), primary_key=True)
     value = Column(Text, primary_key=True)
 
     def __init__(self, id: int, cat: str, value: str):
@@ -293,7 +293,7 @@ class ProteinString(_Base):
     id = Column(BigInteger, ForeignKey(
         'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
     ), primary_key=True)
-    cat = Column(String(32), primary_key=True, index=True)
+    cat = Column(String(32), primary_key=True)
     value = Column(Text, primary_key=True)
 
     def __init__(self, id: int, cat: str, value: str):
@@ -308,3 +308,8 @@ class ProteinString(_Base):
 
     def __str__(self) -> str:
         return self.value
+
+Index('gene_strings_cat_idx', GeneString.__table__.c.col,
+      postgresql_using='hash', mysql_using='hash')
+Index('protein_strings_cat_idx', ProteinString.__table__.c.col,
+      postgresql_using='hash', mysql_using='hash')
