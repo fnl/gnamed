@@ -7,3 +7,4 @@
 """
 
 __author__ = "Florian Leitner"
+__version__ = "1"
