@@ -16,14 +16,14 @@ stored, while for proteins their weight and length is maintained. The main
 all genes/proteins are linked to their species ID. The references to PubMed
 abstracts are collected from the Entrez and UniProt records. For UniProt
 records, in addition, all known (i.e. incl. earlier, outdated) accessions are
-stored as a entity string with the category key (``protein_strings.cat``)
-``"accession"``.
+stored in ``protein_strings`` with the category key (column
+``cat``) set to ``"accession"``.  
 
 Supported Repositories
 ======================
 
 - **Entrez Gene** (key: ``entrez``)
-- **UniProt** (key: ``uniprot``)
+- **UniProt** (key: ``uniprot``) [to fetch only SwissProt, use ``swissprot``]
 - FlyBase (key: ``flybase``)
 - HGNC (key: ``hgnc``)
 - MGI/MGD (key: ``mgi``)
@@ -35,7 +35,7 @@ Requirements
 ============
 
 - Python 3 (tested on 3.3+)
-- SQL Alchemy 0.7+ (tested: psycopg2)
+- SQL Alchemy 0.7+ (tested: with psycopg2)
 - A database (strongly suggested: PostgreSQL 8.4+)
 
 Setup
@@ -51,12 +51,15 @@ Install all dependencies/requirements::
 
 Install this script::
 
-    ./setup.py install
+    python setup.py install
 
 Create the database::
 
-    psql -c "DROP DATABASE IF EXISTS gnamed"
-    psql -c "CREATE DATABASE gnamed ENCODING='UTF-8'"
+    psql -c "DROP DATABASE IF EXISTS gnamed_tmp"
+    psql -c "CREATE DATABASE gnamed_tmp ENCODING='UTF-8'"
+    # or
+    dropdb gnamed_tmp
+    createdb gnamed_tmp
 
 Then, download the NCBI Taxonomy archive::
 
@@ -90,7 +93,8 @@ particularly for setting gene and protein metadata (chromosome, location,
 length, mass). The last repository loaded will always overwrite this metadata.
 So it is advisable to first load the generic repositories (Entrez, UniProt)
 and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
-metadata.
+metadata. (I.e., use the order described in the section "Supported
+Repositories").
 
 Taxonomy
 ========
@@ -121,13 +125,14 @@ circumventing the ORM and its dreadful ``INSERT`` statements. These dumps are
 implemented directly with the underlying DB drivers. Therefore, only the
 following DBs are currently supported with fast loading:
 
-  - PostgreSQL (suffix -pg; driver: **psycopg2**)
+- PostgreSQL (suffix -pg; driver: **psycopg2**)
 
 To use fast loading, the first repository to load into a just initialized
 database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
-two UniProt files may be fast-loaded and finally all other repositories should
-be added in any preferred order. To activate the fast loader instead of the
-regular Parser/ORM mechanism, append the suffix ``pg`` to the repository key,
+two UniProt files (or only SwissProt, if you do not want to use TrEMBL) may
+be fast-loaded and finally all other repositories should be added in any
+preferred order. To activate the fast loader instead of the regular
+Parser/ORM mechanism, append the suffix ``pg`` to the repository key,
 e.g., to fast load Entrez into a Postgres DB use:
 ``gnamed load entrezpg gene2pubmed gene_info``.
 
@@ -135,8 +140,8 @@ Note that if you decide to use SQLight as your DB, the way the ORM dumps data
 into it is nearly as quick as using ``COPY FROM`` stream. Therefore, for this
 particular DB, fast loading is probably not an issue.
 
-Truncating UniProt Files
-========================
+Working with UniProt Files
+==========================
 
 Particularly loading the TrEMBL data can be daunting, because the corresponding
 UniProt flatfile dump is huge (several GB *compressed*). To reduce the size of

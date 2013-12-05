@@ -42,14 +42,14 @@ stored, while for proteins their weight and length is maintained. The main
 all genes/proteins are linked to their species ID. The references to PubMed
 abstracts are collected from the Entrez and UniProt records. For UniProt
 records, in addition, all known (i.e. incl. earlier, outdated) accessions are
-stored as a entity string with the category key (\fBprotein_strings.cat\fP)
-\fB"accession"\fP\&.
+stored in \fBprotein_strings\fP with the category key (column
+\fBcat\fP) set to \fB"accession"\fP\&.
 .SH SUPPORTED REPOSITORIES
 .INDENT 0.0
 .IP \(bu 2
 \fBEntrez Gene\fP (key: \fBentrez\fP)
 .IP \(bu 2
-\fBUniProt\fP (key: \fBuniprot\fP)
+\fBUniProt\fP (key: \fBuniprot\fP) [to fetch only SwissProt, use \fBswissprot\fP]
 .IP \(bu 2
 FlyBase (key: \fBflybase\fP)
 .IP \(bu 2
@@ -68,7 +68,7 @@ TAIR (key: \fBtair\fP)
 .IP \(bu 2
 Python 3 (tested on 3.3+)
 .IP \(bu 2
-SQL Alchemy 0.7+ (tested: psycopg2)
+SQL Alchemy 0.7+ (tested: with psycopg2)
 .IP \(bu 2
 A database (strongly suggested: PostgreSQL 8.4+)
 .UNINDENT
@@ -96,7 +96,7 @@ Install this script:
 .sp
 .nf
 .ft C
-\&./setup.py install
+python setup.py install
 .ft P
 .fi
 .UNINDENT
@@ -108,8 +108,11 @@ Create the database:
 .sp
 .nf
 .ft C
-psql \-c "DROP DATABASE IF EXISTS gnamed"
-psql \-c "CREATE DATABASE gnamed ENCODING=\(aqUTF\-8\(aq"
+psql \-c "DROP DATABASE IF EXISTS gnamed_tmp"
+psql \-c "CREATE DATABASE gnamed_tmp ENCODING=\(aqUTF\-8\(aq"
+# or
+dropdb gnamed_tmp
+createdb gnamed_tmp
 .ft P
 .fi
 .UNINDENT
@@ -185,7 +188,8 @@ particularly for setting gene and protein metadata (chromosome, location,
 length, mass). The last repository loaded will always overwrite this metadata.
 So it is advisable to first load the generic repositories (Entrez, UniProt)
 and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
-metadata.
+metadata. (I.e., use the order described in the section "Supported
+Repositories").
 .SH TAXONOMY
 .sp
 The NCBI Taxonomy is used as the main \fBspecies\fP reference. As some databases
@@ -212,26 +216,23 @@ circumventing the ORM and its dreadful \fBINSERT\fP statements. These dumps are
 implemented directly with the underlying DB drivers. Therefore, only the
 following DBs are currently supported with fast loading:
 .INDENT 0.0
-.INDENT 3.5
-.INDENT 0.0
 .IP \(bu 2
 PostgreSQL (suffix \-pg; driver: \fBpsycopg2\fP)
-.UNINDENT
-.UNINDENT
 .UNINDENT
 .sp
 To use fast loading, the first repository to load into a just initialized
 database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
-two UniProt files may be fast\-loaded and finally all other repositories should
-be added in any preferred order. To activate the fast loader instead of the
-regular Parser/ORM mechanism, append the suffix \fBpg\fP to the repository key,
+two UniProt files (or only SwissProt, if you do not want to use TrEMBL) may
+be fast\-loaded and finally all other repositories should be added in any
+preferred order. To activate the fast loader instead of the regular
+Parser/ORM mechanism, append the suffix \fBpg\fP to the repository key,
 e.g., to fast load Entrez into a Postgres DB use:
 \fBgnamed load entrezpg gene2pubmed gene_info\fP\&.
 .sp
 Note that if you decide to use SQLight as your DB, the way the ORM dumps data
 into it is nearly as quick as using \fBCOPY FROM\fP stream. Therefore, for this
 particular DB, fast loading is probably not an issue.
-.SH TRUNCATING UNIPROT FILES
+.SH WORKING WITH UNIPROT FILES
 .sp
 Particularly loading the TrEMBL data can be daunting, because the corresponding
 UniProt flatfile dump is huge (several GB \fIcompressed\fP). To reduce the size of
