@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from distutils.core import setup
 
-# TODO: MANIFEST.in with the .rst files in doc
-
 setup(
     name='gnamed',
     version='1',
@@ -15,6 +13,7 @@ setup(
     package_dir={'': 'src'},
     install_requires=[
         'sqlalchemy >= 0.8',
+        'pyscopg2 >= 2.3',
         'progress_bar = 1',
     ],
     packages=[
@@ -25,7 +24,7 @@ setup(
         'scripts/gnamed',
     ],
     data_files=[
-        ('/usr/local/share/man/man1', ['gnamed.1']),
+        ('man/man1', ['gnamed.1']),
     ],
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',

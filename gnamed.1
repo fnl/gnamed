@@ -1,0 +1,318 @@
+.\" Man page generated from reStructuredText.
+.
+.TH GNAMED  "" "" ""
+.SH NAME
+gnamed \- a command-line tool to bootstrap a database of gene and protein names
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.sp
+A script (\fBgnamed\fP) to download gene/protein name records, bootstrap a
+database to store them, and load the gene/protein names into that datastore,
+unifying the names across multiple repositories into single, species\-specific
+gene and protein records with their references to PubMed IDs. The datastore
+differentiates between names and symbols, and contains keywords relevant for
+each protein and gene. For genes, their chromosome and location (band) is
+stored, while for proteins their weight and length is maintained. The main
+("official") name and symbol for each originating repository is retained and
+all genes/proteins are linked to their species ID. The references to PubMed
+abstracts are collected from the Entrez and UniProt records. For UniProt
+records, in addition, all known (i.e. incl. earlier, outdated) accessions are
+stored as a entity string with the category key (\fBprotein_strings.cat\fP)
+\fB"accession"\fP\&.
+.SH SUPPORTED REPOSITORIES
+.INDENT 0.0
+.IP \(bu 2
+\fBEntrez Gene\fP (key: \fBentrez\fP)
+.IP \(bu 2
+\fBUniProt\fP (key: \fBuniprot\fP)
+.IP \(bu 2
+FlyBase (key: \fBflybase\fP)
+.IP \(bu 2
+HGNC (key: \fBhgnc\fP)
+.IP \(bu 2
+MGI/MGD (key: \fBmgi\fP)
+.IP \(bu 2
+RGD (key: \fBrgd\fP)
+.IP \(bu 2
+SGD (key: \fBsgd\fP)
+.IP \(bu 2
+TAIR (key: \fBtair\fP)
+.UNINDENT
+.SH REQUIREMENTS
+.INDENT 0.0
+.IP \(bu 2
+Python 3 (tested on 3.3+)
+.IP \(bu 2
+SQL Alchemy 0.7+ (tested: psycopg2)
+.IP \(bu 2
+A database (strongly suggested: PostgreSQL 8.4+)
+.UNINDENT
+.SH SETUP
+.sp
+See the general setup instructions for libfnl.
+.sp
+Install all dependencies/requirements:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+pip install argparse # only for python3 < 3.2
+pip install SQLAlchemy
+pip install psycopg2 # optional, can use any other driver
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Install this script:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\&./setup.py install
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Create the database:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+psql \-c "DROP DATABASE IF EXISTS gnamed"
+psql \-c "CREATE DATABASE gnamed ENCODING=\(aqUTF\-8\(aq"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Then, download the NCBI Taxonomy archive:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+gnamed fetch taxa \-d /tmp
+tar zxvf /tmp/taxdump.tar.gz
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Boostrap the DB with the NCBI Taxonomy files:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+gnamed init /tmp/nodes.dmp /tmp/names.dmp /tmp/merged.dmp
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH USAGE
+.sp
+Fetch and load any repository as required; e.g.:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+gnamed fetch entrez \-d /tmp
+gunzip /tmp/gene_info.gz /tmp/gene2pubmed.gz
+gnamed load entrez /tmp/gene2pubmed /tmp/gene_info
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Sometimes, repositories are downloaded as text files; e.g.:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+gnamed fetch hgnc
+gnamed load hgnc hgnc.csv
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+To see a list of available repositories, use:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+gnamed \-\-list
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+\fBImportant:\fP The order in which repositories are loaded \fIdoes\fP matter,
+particularly for setting gene and protein metadata (chromosome, location,
+length, mass). The last repository loaded will always overwrite this metadata.
+So it is advisable to first load the generic repositories (Entrez, UniProt)
+and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
+metadata.
+.SH TAXONOMY
+.sp
+The NCBI Taxonomy is used as the main \fBspecies\fP reference. As some databases
+are not always up\-to\-date, in addition to the default nodes (and their names),
+the merged nodes are added, too. This allows mapping of many out\-dated TaxIDs
+to the relevant (current) species. All (outdated) NCBI TaxIDs that have
+been merged into new nodes are added to the \fBspecies\fP table, using the merge
+target as their parent_id and with the constant value "\fBmerged\fP" in the
+\fIrank\fP attribute, that normally qualifies the type of node. However, there are
+records that have no known mapping to the NCBI Taxonomy (and despite being
+qualified as NCBI TaxIDs) in some databases. These references to "unknown"
+species are all re\-mapped to the NCBI node for unknown species (NCBI TaxID
+\fB32644\fP). For example, in TrEMBL (UniProt), this is the case for about 60
+species IDs and their associated proteins.
+.sp
+The \fBspecies_names\fP table contains all names for a given node, using the
+attribute \fIcat\fP to qualify the type of name (e.g., "\fBcommon name\fP").
+.SH FAST LOADING
+.sp
+Given that loading \fBEntrez Gene\fP and \fBUniProt\fP can take a very long time
+(days or weeks) if they are loaded using the default mechanism, a fast DB
+dump mechanism (using "\fBCOPY FROM\fP stream") is available for those DBs,
+circumventing the ORM and its dreadful \fBINSERT\fP statements. These dumps are
+implemented directly with the underlying DB drivers. Therefore, only the
+following DBs are currently supported with fast loading:
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.IP \(bu 2
+PostgreSQL (suffix \-pg; driver: \fBpsycopg2\fP)
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+To use fast loading, the first repository to load into a just initialized
+database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
+two UniProt files may be fast\-loaded and finally all other repositories should
+be added in any preferred order. To activate the fast loader instead of the
+regular Parser/ORM mechanism, append the suffix \fBpg\fP to the repository key,
+e.g., to fast load Entrez into a Postgres DB use:
+\fBgnamed load entrezpg gene2pubmed gene_info\fP\&.
+.sp
+Note that if you decide to use SQLight as your DB, the way the ORM dumps data
+into it is nearly as quick as using \fBCOPY FROM\fP stream. Therefore, for this
+particular DB, fast loading is probably not an issue.
+.SH TRUNCATING UNIPROT FILES
+.sp
+Particularly loading the TrEMBL data can be daunting, because the corresponding
+UniProt flatfile dump is huge (several GB \fIcompressed\fP). To reduce the size of
+the UniProt data, all unnecessary lines can be removed from the dump files:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+zcat uniprot_trembl.dat.gz | grep "^\e(ID\e|AC\e|DE\e|GN\e|OX\e|RX\e|DR\e|KW\e|SQ\e|//\e)" > uniprot_trembl.min.dat
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+It is possible to load the UniProt files separately or only load
+SwissProt; any file listed as argument will be parsed and loaded:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+gnamed load uniprotpg uniprot_sprot.dat uniprot_trembl.min.dat.gz
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH ENTITY RELATIONSHIP MODEL
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+[SpeciesName] → [Species*]
+                     ↑
+[EntityString] → [Entity] ← [EntityRef] | ← [Entity2PubMed]
+                   ↑  ↑
+                 <mapping>
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B Species (species)
+\fBid\fP:INT, parent_id:FK(Species), \fIrank\fP:VARCHAR(32),
+\fIunique_name\fP:TEXT, genbank_name:TEXT
+.TP
+.B SpeciesName (species_names)
+\fBid\fP:FK(Species), \fBcat\fP:VARCHAR(32), \fBname\fP:TEXT
+.TP
+.B Gene (genes)
+\fBid\fP:BIGINT, \fIspecies_id\fP:FK_Species,
+chromosome:VARCHAR(32), location:VARCHAR(64)
+.TP
+.B Protein (proteins)
+\fBid\fP:BIGINT, \fIspecies_id\fP:FK_Species,
+mass:INT, length:INT
+.TP
+.B mapping (genes2proteins)
+\fBgene_id\fP:FK(Gene), \fBprotein_id\fP:FK(Protein)
+.TP
+.B EntityRef (entity_refs)
+\fBnamespace\fP:VARCHAR(8), \fBaccession\fP:VARCHAR(64),
+symbol:VARCHAR(64), name:TEXT, id:FK(Entity)
+.TP
+.B Entity2PubMed (entity2pubmed)
+\fBid\fP:FK(Entity), \fBpmid\fP:INT
+.TP
+.B EntityString (entity_strings)
+\fBid\fP:FK(Entity), \fBcat\fP:VARCHAR(32), \fBvalue\fP:TEXT
+.UNINDENT
+.INDENT 0.0
+.IP \(bu 2
+\fBbold\fP (Composite) Primary Key
+.IP \(bu 2
+\fIitalic\fP NOT NULL
+.IP \(bu 2
+\fBEntity\fP can be either "Gene" or "Protein"
+.IP \(bu 2
+\fBentity\fP can be either "gene" or "protein"
+.UNINDENT
+.\" Generated by docutils manpage writer.
+.
