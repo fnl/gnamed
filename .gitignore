@@ -1,5 +1,6 @@
 .*
-env
-tests
-tags
-**__pycache__
+bin/
+build/
+include/
+lib/
+man/
