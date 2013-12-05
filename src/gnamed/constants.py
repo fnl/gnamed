@@ -28,6 +28,13 @@ REPOSITORIES = {
         ],
         'description': "UniProtKB TrEMBL/Swiss-Prot text files",
         },
+    'swissprot': {
+        'url': 'ftp://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/',
+        'resources': [
+            ('uniprot_sprot.dat.gz', 'uniprot_sprot.dat.gz', None),
+        ],
+        'description': "fetch UniProtKB Swiss-Prot text files only",
+        },
     'hgnc': {
         # see http://www.genenames.org/cgi-bin/hgnc_downloads.cgi for more info
         'url': 'http://www.genenames.org/cgi-bin/hgnc_downloads.cgi?',
