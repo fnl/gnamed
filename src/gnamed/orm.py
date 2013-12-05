@@ -11,7 +11,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import engine
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.orm.session import sessionmaker
-from sqlalchemy.schema import Column, ForeignKey, Sequence, Table
+from sqlalchemy.schema import Column, ForeignKey, Sequence, Table, Index
 from sqlalchemy.types import BigInteger, Integer, String, Text
 
 _Base = declarative_base()
@@ -269,7 +269,7 @@ class GeneString(_Base):
     id = Column(BigInteger, ForeignKey(
         'genes.id', onupdate='CASCADE', ondelete='CASCADE'
     ), primary_key=True)
-    cat = Column(String(32), primary_key=True)
+    cat = Column(String(32), primary_key=True, index=True)
     value = Column(Text, primary_key=True)
 
     def __init__(self, id: int, cat: str, value: str):
@@ -293,7 +293,7 @@ class ProteinString(_Base):
     id = Column(BigInteger, ForeignKey(
         'proteins.id', onupdate='CASCADE', ondelete='CASCADE'
     ), primary_key=True)
-    cat = Column(String(32), primary_key=True)
+    cat = Column(String(32), primary_key=True, index=True)
     value = Column(Text, primary_key=True)
 
     def __init__(self, id: int, cat: str, value: str):
