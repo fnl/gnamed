@@ -95,6 +95,7 @@ TRANSLATE = {
     'PBR': None,
     'PFAM': None,
     'PseudoCap': None,
+    'TubercuList': None,
     'UniProtKB/Swiss-Prot': None,  # not worth mapping those five references...
     'VBRC': None,
     'VectorBase': None,
