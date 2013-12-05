@@ -177,6 +177,7 @@ TRANSLATE = {
     'PptaseDB': None,
     'PRIDE': None,
     'PRINTS': None,
+    'PRO': None,
     'ProDom': None,
     'ProMEX': None,
     'PROSITE': None,
@@ -648,7 +649,7 @@ class SpeedLoader(Parser):
                 )
 
         for pmid in record.pmids:
-            self._protein2pubmed.write('{}\t{}\n'.format(pmid, pid))
+            self._protein2pubmed.write('{}\t{}\n'.format(pid, pmid))
 
         gene_ids = set()
 
