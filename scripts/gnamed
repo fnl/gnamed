@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
 """bootstrap a gene/protein name/reference repository"""
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see http://www.gnu.org/licenses/
+
 import gnamed
 import logging
 import sys
@@ -13,6 +26,9 @@ from gnamed.constants import REPOSITORIES
 from gnamed.fetcher import Retrieve
 from gnamed.orm import InitDb
 from gnamed.parsers import taxa
+
+__author__ = 'Florian Leitner <florian.leitner@gmail.com>'
+__version__ = '1.0.0'
 
 _cmd = None
 
@@ -37,7 +53,7 @@ else:
 parser = ArgumentParser(
     usage=_usage, description=_description,
     prog=os.path.basename(sys.argv[0]),
-    epilog="(c) Florian Leitner 2012. All rights reserverd. License: aGPL v3."
+    epilog="(c) Florian Leitner 2012. All rights reserverd. License: GPL v3."
 )
 
 parser.set_defaults(loglevel=logging.WARNING)
@@ -48,8 +64,7 @@ parser.add_argument(
     help="one of: fetch, init, load (see --help CMD)"
 )
 parser.add_argument(
-    '--version', action='store_true',
-    help="print version and exit"
+    '--version', action='version', version=__version__
 )
 parser.add_argument(
     '--list', action='store_true',

@@ -3,7 +3,7 @@ from distutils.core import setup
 
 setup(
     name='gnamed',
-    version='1',
+    version='1.0.0',
     license='GNU GPL v3',
     author='Florian Leitner',
     author_email='florian.leitner@gmail.com',
@@ -15,6 +15,7 @@ setup(
         'sqlalchemy >= 0.8',
         'pyscopg2 >= 2.3',
         'progress_bar >= 5',
+        'bumpversion >= 0.4',
     ],
     packages=[
         'gnamed',
