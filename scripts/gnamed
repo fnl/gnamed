@@ -167,9 +167,7 @@ logging.basicConfig(
 if args.loglevel <= logging.DEBUG:
     logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
 
-if args.version:
-    print(gnamed.__version__)
-elif args.list:
+if args.list:
     for key in REPOSITORIES:
         print("{}\t({})".format(key, REPOSITORIES[key]['description']))
 elif args.command == 'fetch':
