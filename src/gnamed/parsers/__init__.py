@@ -11,7 +11,7 @@ import io
 
 from psycopg2 import Error
 from gnamed.orm import Session
-from progress_bar import initBarForInfile
+from progress_bar import InitBarForInfile
 
 
 class AbstractParser:
@@ -55,7 +55,7 @@ class AbstractParser:
             progress_bar = None
 
             if logging.getLogger().getEffectiveLevel() > logging.DEBUG:
-                progress_bar = initBarForInfile(file)
+                progress_bar = InitBarForInfile(file)
 
             self.record = None
             self.current_id = None
