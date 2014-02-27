@@ -24,7 +24,7 @@ from sqlalchemy.exc import OperationalError
 #import gnamed
 from gnamed.constants import REPOSITORIES
 from gnamed.fetcher import Retrieve
-from gnamed.orm import InitDb, Session
+from gnamed.orm import InitDb, Session, RetrieveStrings
 from gnamed.parsers import taxa
 
 __author__ = 'Florian Leitner <florian.leitner@gmail.com>'
