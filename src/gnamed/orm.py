@@ -58,11 +58,47 @@ def RetrieveStrings(repo_key):
         "accession", "category", "value"
     ).from_statement(
         """
+        SELECT accession, 'official_symbol' AS category, symbol AS value
+             FROM gene_refs
+             WHERE namespace = :repo_key
+                  AND symbol <> ''
+        UNION ALL
+        SELECT accession, 'official_name' AS category, name AS value
+             FROM gene_refs
+             WHERE namespace = :repo_key
+                  AND name <> ''
+        UNION ALL
         SELECT accession, 'gene_symbol' AS category, value
-          FROM gene_refs
-          JOIN gene_strings USING (id)
-          WHERE namespace = :repo_key
-            AND cat = 'symbol'
+             FROM gene_refs
+             JOIN gene_strings
+                  USING (id)
+             WHERE namespace = :repo_key
+                  AND cat = 'symbol'
+        UNION ALL
+        SELECT accession, 'gene_name' as category, value
+             FROM gene_refs
+             JOIN gene_strings
+                  USING (id)
+             WHERE namespace = :repo_key
+                  AND cat = 'name'
+        UNION ALL
+        SELECT accession, 'protein_symbol' AS category, value
+             FROM gene_refs AS gr
+             JOIN genes2proteins AS g2p
+                  ON (gr.id = g2p.gene_id)
+             JOIN protein_strings AS ps
+                  ON (g2p.protein_id = ps.id)
+             WHERE gr.namespace = :repo_key
+                  AND ps.cat = 'symbol'
+        UNION ALL
+        SELECT accession, 'protein_name' AS category, value
+             FROM gene_refs AS gr
+             JOIN genes2proteins AS g2p
+                  ON (gr.id = g2p.gene_id)
+             JOIN protein_strings AS ps
+                  ON (g2p.protein_id = ps.id)
+             WHERE gr.namespace = :repo_key
+                  AND ps.cat = 'name'
         """
     ).params(repo_key=repo_key).all():
         yield instance
@@ -74,14 +110,52 @@ def RetrieveProteinStrings(repo_key):
     """
     session = Session()
     for instance in session.query(
-        ProteinRef
-    ).join(
-        ProteinString, ProteinRef.id == ProteinString.id
-    ).filter(
-        ProteinRef.namespace == repo_key
-    ).filter(
-        ProteinString.cat == 'symbol'
-    ):
+        "accession", "category", "value"
+    ).from_statement(
+        """
+        SELECT accession, 'official_symbol' AS category, symbol AS value
+             FROM protein_refs
+             WHERE namespace = :repo_key
+                  AND symbol <> ''
+        UNION ALL
+        SELECT accession, 'official_name' AS category, name AS value
+             FROM protein_refs
+             WHERE namespace = :repo_key
+                  AND name <> ''
+        UNION ALL
+        SELECT accession, 'protein_symbol' AS category, value
+             FROM protein_refs
+             JOIN protein_strings
+                  USING (id)
+             WHERE namespace = :repo_key
+                  AND cat = 'symbol'
+        UNION ALL
+        SELECT accession, 'protein_name' as category, value
+             FROM protein_refs
+             JOIN protein_strings
+                  USING (id)
+             WHERE namespace = :repo_key
+                  AND cat = 'name'
+        UNION ALL
+        SELECT accession, 'gene_symbol' AS category, value
+             FROM protein_refs AS pr
+             JOIN genes2proteins AS g2p
+                  ON (pr.id = g2p.protein_id)
+             JOIN gene_strings AS gs
+                  ON (g2p.gene_id = gs.id)
+             WHERE pr.namespace = :repo_key
+                  AND gs.cat = 'symbol'
+        UNION ALL
+        SELECT accession, 'gene_name' AS category, value
+             FROM protein_refs AS pr
+             JOIN genes2proteins AS g2p
+                  ON (pr.id = g2p.protein_id)
+             JOIN gene_strings AS gs
+                  ON (g2p.gene_id = gs.id)
+             WHERE pr.namespace = :repo_key
+                  AND gs.cat = 'name'
+        """
+    ).params(repo_key=repo_key).all():
         yield instance
 
 
