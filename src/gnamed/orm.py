@@ -54,7 +54,7 @@ def RetrieveStrings(repo_key):
         return RetrieveProteinStrings(repo_key, session)
 
     session = Session()
-    return session.query(
+    for instance in session.query(
         GeneRef
     ).join(
         GeneString, GeneRef.id == GeneString.id
@@ -62,7 +62,8 @@ def RetrieveStrings(repo_key):
         GeneRef.namespace == repo_key
     ).filter(
         GeneString.cat == 'symbol'
-    )
+    ):
+        yield instance
 
 
 def RetrieveProteinStrings(repo_key):
@@ -70,7 +71,7 @@ def RetrieveProteinStrings(repo_key):
     Retrieve accession, category, name/symbol strings for a protein repository.
     """
     session = Session()
-    return session.query(
+    for instance in session.query(
         ProteinRef
     ).join(
         ProteinString, ProteinRef.id == ProteinString.id
@@ -78,7 +79,8 @@ def RetrieveProteinStrings(repo_key):
         ProteinRef.namespace == repo_key
     ).filter(
         ProteinString.cat == 'symbol'
-    )
+    ):
+        yield instance
 
 
 class Species(_Base):
