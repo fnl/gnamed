@@ -55,14 +55,16 @@ def RetrieveStrings(repo_key):
 
     session = Session()
     for instance in session.query(
-        GeneRef
-    ).join(
-        GeneString, GeneRef.id == GeneString.id
-    ).filter(
-        GeneRef.namespace == repo_key
-    ).filter(
-        GeneString.cat == 'symbol'
-    ):
+        "accession", "category", "value"
+    ).from_statement(
+        """
+        SELECT accession, 'gene_symbol' AS category, value
+          FROM gene_refs
+          JOIN gene_strings USING (id)
+          WHERE namespace = :repo_key
+            AND cat = 'symbol'
+        """
+    ).params(repo_key=repo_key).all():
         yield instance
 
 
