@@ -5,7 +5,7 @@
 .. moduleauthor:: Florian Leitner <florian.leitner@gmail.com>
 .. License: GNU GPL v3 (http://www.gnu.org/licenses/gpl.html)
 """
-import sqlalchemy
+#import sqlalchemy
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import engine
@@ -36,7 +36,7 @@ def InitDb(*args, **kwds):
     return None
 
 
-def Session(*args, **kwds) -> sqlalchemy.orm.session.Session:
+def Session(*args, **kwds):
     """
     Start a new DB session.
 
@@ -44,6 +44,41 @@ def Session(*args, **kwds) -> sqlalchemy.orm.session.Session:
     <http://docs.sqlalchemy.org/en/rel_0_7/orm/session.html#sqlalchemy.orm.session>`_.Session
     """
     return _session(*args, **kwds)
+
+
+def RetrieveStrings(repo_key):
+    """
+    Retrieve accession, category, name/symbol strings for a repostiory key.
+    """
+    if repo_key == 'uniprot' or repo_key == 'swissprot':
+        return RetrieveProteinStrings(repo_key, session)
+
+    session = Session()
+    return session.query(
+        GeneRef
+    ).join(
+        GeneString, GeneRef.id == GeneString.id
+    ).filter(
+        GeneRef.namespace == repo_key
+    ).filter(
+        GeneString.cat == 'symbol'
+    )
+
+
+def RetrieveProteinStrings(repo_key):
+    """
+    Retrieve accession, category, name/symbol strings for a protein repository.
+    """
+    session = Session()
+    return session.query(
+        ProteinRef
+    ).join(
+        ProteinString, ProteinRef.id == ProteinString.id
+    ).filter(
+        ProteinRef.namespace == repo_key
+    ).filter(
+        ProteinString.cat == 'symbol'
+    )
 
 
 class Species(_Base):

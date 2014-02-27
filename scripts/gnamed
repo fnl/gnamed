@@ -13,7 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see http://www.gnu.org/licenses/
 
-import gnamed
 import logging
 import sys
 import os
@@ -22,18 +21,20 @@ from argparse import ArgumentParser
 from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import OperationalError
 
+#import gnamed
 from gnamed.constants import REPOSITORIES
 from gnamed.fetcher import Retrieve
-from gnamed.orm import InitDb
+from gnamed.orm import InitDb, Session
 from gnamed.parsers import taxa
 
 __author__ = 'Florian Leitner <florian.leitner@gmail.com>'
 __version__ = '1.0.1'
 
+COMMANDS = ['fetch', 'init', 'load', 'display']
 _cmd = None
 
 for a in sys.argv:
-    if a in ['fetch', 'load', 'init']:
+    if a in COMMANDS:
         _cmd = a
         break
 
@@ -46,6 +47,9 @@ elif _cmd == 'init':
 elif _cmd == 'load':
     _usage = "%(prog)s [options] load KEY FILE [FILE...]"
     _description = "load a repository into the DB"
+elif _cmd == 'display':
+    _usage = "%(prog)s [options] display KEY"
+    _description = "display all names & symbols for a repo in the DB"
 else:
     _usage = "%(prog)s [options] CMD [args...]"
     _description = __doc__
@@ -60,8 +64,8 @@ parser.set_defaults(loglevel=logging.WARNING)
 
 parser.add_argument(
     'command', metavar='CMD', nargs='?',
-    choices=['fetch', 'init', 'load'],
-    help="one of: fetch, init, load (see --help CMD)"
+    choices=COMMANDS,
+    help="one of: %s (see --help CMD)" % ", ".join(COMMANDS)
 )
 parser.add_argument(
     '--version', action='version', version=__version__
@@ -71,7 +75,7 @@ parser.add_argument(
     help="list available repository keys and exit"
 )
 
-if _cmd in ('init', 'load'):
+if _cmd in ('init', 'load', 'display'):
     parser.add_argument(
         '--database', metavar='DB', action='store',
         default=os.getenv('PGDATABASE', "gnamed_tmp"),
@@ -134,6 +138,11 @@ elif _cmd == 'load':
     parser.add_argument(
         'files', metavar='FILE [FILE ...]', nargs='*',
         help="path to the file(s) to load"
+    )
+elif _cmd == 'display':
+    parser.add_argument(
+        'repository', metavar='KEY', nargs='?',
+        help="repository key to display"
     )
 
 parser.add_argument(
@@ -245,5 +254,22 @@ elif args.command == 'init':
     taxa_parser = taxa.Parser(args.nodes, args.names, args.merged,
                               encoding=args.encoding)
     taxa_parser.parse()
+elif args.command == 'display':
+    if args.repository not in REPOSITORIES:
+        parser.error('repository key "{}" unknown'.format(args.repository))
+
+    db_url = URL(args.driver, username=args.username, password=args.password,
+                 host=args.host, port=args.port, database=args.database)
+    logging.info('connecting to %s', db_url)
+
+    try:
+        InitDb(db_url)
+    except OperationalError as oe:
+        if logging.getLogger().isEnabledFor(logging.DEBUG):
+            logging.exception("DB error")
+        parser.error(str(oe.orig).strip())
+
+    for result in RetrieveStrings(args.repository):
+        print("\t".join(result))
 else:
     parser.error('wrong number of arguments')
