@@ -5,7 +5,7 @@ gnamed
 a command-line tool to bootstrap a database of gene and protein names
 ---------------------------------------------------------------------
 
-A script (``gnamed``) to download gene/protein name records, bootstrap a
+``gnamed`` is a tool to download gene/protein name records, bootstrap a
 database to store them, and load the gene/protein names into that datastore,
 unifying the names across multiple repositories into single, species-specific
 gene and protein records with their references to PubMed IDs. The datastore
@@ -16,14 +16,17 @@ stored, while for proteins their weight and length is maintained. The main
 all genes/proteins are linked to their species ID. The references to PubMed
 abstracts are collected from the Entrez and UniProt records. For UniProt
 records, in addition, all known (i.e. incl. earlier, outdated) accessions are
-stored in ``protein_strings`` with the category key (column
-``cat``) set to ``"accession"``.  
+stored in ``protein_strings`` with the category key (column ``cat``) set to
+``"accession"``. After loading, all names and keywords from all repositories,
+but mapped to one of the imported repository can be extracted with
+``gnamed display``, and mappings between the identifiers ("accessions") of
+repositories can be extracted with ``gnamed map``.
 
 Supported Repositories
 ======================
 
 - **Entrez Gene** (key: ``entrez``)
-- **UniProt** (key: ``uniprot``) [to fetch only SwissProt, use ``swissprot``]
+- **UniProt** (key: ``uniprot``) [to fetch only SwissProt, specify ``swissprot``]
 - FlyBase (key: ``flybase``)
 - HGNC (key: ``hgnc``)
 - MGI/MGD (key: ``mgi``)
@@ -36,12 +39,12 @@ Requirements
 
 - Python 3 (tested on 3.3+)
 - SQL Alchemy 0.7+ (tested: with psycopg2)
-- A database (strongly suggested: PostgreSQL 8.4+)
+- A database (strongly suggested: PostgreSQL 9.1+)
 
 Setup
 =====
 
-See the general setup instructions for libfnl.
+Requires a database (suggested: PostgreSQL 9.1 or newer).
 
 Install all dependencies/requirements::
 
@@ -49,7 +52,7 @@ Install all dependencies/requirements::
     pip install SQLAlchemy
     pip install psycopg2 # optional, can use any other driver
 
-Install this script::
+Install this tool::
 
     python setup.py install
 

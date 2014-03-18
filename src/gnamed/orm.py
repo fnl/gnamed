@@ -46,14 +46,19 @@ def Session(*args, **kwds):
     return _session(*args, **kwds)
 
 
+def IsProteinRepo(key):
+    return key == 'uniprot' or key == 'swissprot'
+
+
 def RetrieveStrings(repo_key):
     """
     Retrieve accession, category, name/symbol strings for a repostiory key.
     """
-    if repo_key == 'uniprot' or repo_key == 'swissprot':
-        return RetrieveProteinStrings(repo_key, session)
+    if IsProteinRepo(repo_key):
+        return RetrieveProteinStrings(repo_key)
 
     session = Session()
+
     for instance in session.query(
         "accession", "category", "value"
     ).from_statement(
@@ -109,53 +114,95 @@ def RetrieveProteinStrings(repo_key):
     Retrieve accession, category, name/symbol strings for a protein repository.
     """
     session = Session()
+
     for instance in session.query(
         "accession", "category", "value"
     ).from_statement(
         """
         SELECT accession, 'official_symbol' AS category, symbol AS value
-             FROM protein_refs
-             WHERE namespace = :repo_key
-                  AND symbol <> ''
+            FROM protein_refs
+            WHERE namespace = :repo_key
+                AND symbol <> ''
         UNION ALL
         SELECT accession, 'official_name' AS category, name AS value
-             FROM protein_refs
-             WHERE namespace = :repo_key
-                  AND name <> ''
+            FROM protein_refs
+            WHERE namespace = :repo_key
+                AND name <> ''
         UNION ALL
         SELECT accession, 'protein_symbol' AS category, value
-             FROM protein_refs
-             JOIN protein_strings
-                  USING (id)
-             WHERE namespace = :repo_key
-                  AND cat = 'symbol'
+            FROM protein_refs
+            JOIN protein_strings
+                USING (id)
+            WHERE namespace = :repo_key
+                AND cat = 'symbol'
         UNION ALL
         SELECT accession, 'protein_name' as category, value
-             FROM protein_refs
-             JOIN protein_strings
-                  USING (id)
-             WHERE namespace = :repo_key
-                  AND cat = 'name'
+            FROM protein_refs
+            JOIN protein_strings
+                USING (id)
+            WHERE namespace = :repo_key
+                AND cat = 'name'
         UNION ALL
         SELECT accession, 'gene_symbol' AS category, value
-             FROM protein_refs AS pr
-             JOIN genes2proteins AS g2p
-                  ON (pr.id = g2p.protein_id)
-             JOIN gene_strings AS gs
-                  ON (g2p.gene_id = gs.id)
-             WHERE pr.namespace = :repo_key
-                  AND gs.cat = 'symbol'
+            FROM protein_refs AS pr
+            JOIN genes2proteins AS g2p
+                ON (pr.id = g2p.protein_id)
+            JOIN gene_strings AS gs
+                ON (g2p.gene_id = gs.id)
+            WHERE pr.namespace = :repo_key
+                AND gs.cat = 'symbol'
         UNION ALL
         SELECT accession, 'gene_name' AS category, value
-             FROM protein_refs AS pr
-             JOIN genes2proteins AS g2p
-                  ON (pr.id = g2p.protein_id)
-             JOIN gene_strings AS gs
-                  ON (g2p.gene_id = gs.id)
-             WHERE pr.namespace = :repo_key
-                  AND gs.cat = 'name'
+            FROM protein_refs AS pr
+            JOIN genes2proteins AS g2p
+                ON (pr.id = g2p.protein_id)
+            JOIN gene_strings AS gs
+                ON (g2p.gene_id = gs.id)
+            WHERE pr.namespace = :repo_key
+                AND gs.cat = 'name'
         """
     ).params(repo_key=repo_key).all():
+        yield instance
+
+
+def MapRepositories(from_key, to_key):
+    if IsProteinRepo(from_key):
+        return MapProteinRepositories(from_key, to_key)
+    elif IsProteinRepo(to_key):
+        return MapProteinRepositories(to_key, from_key)
+
+    session = Session()
+
+    for instance in session.query("from_id", "to_id").from_statement(
+        """
+        SELECT from.accession AS from_id, to.accession AS to_id
+            FROM gene_refs AS from
+            JOIN genes
+                USING (id)
+            JOIN gene_refs AS to
+                USING (id)
+            WHERE from.namespace = :from_key
+                AND to.namespace = :to_key
+        """
+    ).params(from_key=from_key, to_key=to_key).all():
+        yield instance
+
+
+def MapProteinRepositories(protein_key, gene_key):
+    session = Session()
+
+    for instance in session.query("protein_id", "gene_id").from_statement(
+        """
+        SELECT p.accession AS protein_id, g.accession AS gene_id
+            FROM protein_refs AS p
+            JOIN genes2proteins AS g2p
+                ON (g2p.protein_id = p.id)
+            JOIN gene_refs AS g
+                ON (g2p.gene_id = g.id)
+            WHERE p.namespace = :protein_key
+                AND g.namespace = :gene_key
+        """
+    ).params(protein_key=protein_key, gene_key=gene_key).all():
         yield instance
 
 

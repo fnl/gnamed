@@ -31,7 +31,7 @@ COLNAME = {
     4: 'synonyms',
     5: 'dbxrefs',
     6: 'chromosome',
-    7: 'map_loaction',
+    7: 'map_location',
     8: 'name',
     9: 'type_of_gene',
     10: 'nomenclature_symbol',

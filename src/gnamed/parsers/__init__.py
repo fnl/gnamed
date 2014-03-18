@@ -17,7 +17,7 @@ from progress_bar import InitBarForInfile
 class AbstractParser:
     """
     An abstract parser implementation that opens file streams, handles DB
-    sesssions (creating, flushing, committing) and creates a
+    sessions (creating, flushing, committing) and creates a
     `progress_bar` given the log-level.
     """
 

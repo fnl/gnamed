@@ -13,7 +13,7 @@ setup(
     package_dir={'': 'src'},
     install_requires=[
         'sqlalchemy >= 0.8',
-        'pyscopg2 >= 2.3',
+        'psycopg2 >= 2.3',
         'progress_bar >= 5',
         'bumpversion >= 0.4',
     ],
