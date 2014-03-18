@@ -92,6 +92,7 @@ class Namespace:
     # general DBs
     entrez = 'gi'
     uniprot = 'uni'
+    swissprot = 'uni'
     # organism-specific DBs
     hgnc = 'hgnc'    # human
     mgi = 'mgi'      # mouse

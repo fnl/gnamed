@@ -48,7 +48,7 @@ def Session(*args, **kwds):
 
 
 def IsProteinRepo(key):
-    return key == 'uniprot' or key == 'swissprot'
+    return key == 'uni'
 
 
 def RetrieveStrings(repo_key):
