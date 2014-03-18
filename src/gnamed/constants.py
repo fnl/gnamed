@@ -94,7 +94,7 @@ class Namespace:
     uniprot = 'uni'
     # organism-specific DBs
     hgnc = 'hgnc'    # human
-    mgd = 'mgi'      # mouse
+    mgi = 'mgi'      # mouse
     rgd = 'rgd'      # rat
     flybase = 'fly'  # (fruit) fly
     sgd = 'sgd'      # bakers yeast (S. cerevisiae)
@@ -109,7 +109,7 @@ NAMESPACES = frozenset({
     Namespace.entrez,
     Namespace.uniprot,
     Namespace.hgnc,
-    Namespace.mgd,
+    Namespace.mgi,
     Namespace.rgd,
     Namespace.flybase,
     Namespace.sgd,
@@ -124,7 +124,7 @@ NAMESPACES = frozenset({
 GENE_SPACES = frozenset({
     Namespace.entrez,
     Namespace.hgnc,
-    Namespace.mgd,
+    Namespace.mgi,
     Namespace.rgd,
     Namespace.flybase,
     Namespace.sgd,
@@ -179,7 +179,7 @@ SPECIES = frozenset({
 
 SPECIES_SPACES = {
     Namespace.hgnc: frozenset({Species.human}),
-    Namespace.mgd: frozenset({Species.mouse}),
+    Namespace.mgi: frozenset({Species.mouse}),
     Namespace.rgd: frozenset({Species.human, Species.rat}),
     Namespace.flybase: frozenset({Species.fly, 46245, 7217, 7220, 7222, 7230,
                                   7234, 7238, 7240, 7244, 7245, 7260}),

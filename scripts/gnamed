@@ -22,7 +22,7 @@ from sqlalchemy.engine.url import URL
 from sqlalchemy.exc import OperationalError
 
 #import gnamed
-from gnamed.constants import REPOSITORIES
+from gnamed.constants import REPOSITORIES, Namespace
 from gnamed.fetcher import Retrieve
 from gnamed.orm import InitDb, RetrieveStrings, MapRepositories
 from gnamed.parsers import taxa
@@ -263,18 +263,21 @@ elif args.command == 'display':
         parser.error('repository key "{}" unknown'.format(args.repository))
 
     ConnectDb(args)
+    key = getattr(Namespace, args.repository)
 
-    for result in RetrieveStrings(args.repository):
+    for result in RetrieveStrings(key):
         print("\t".join(result))
 elif args.command == 'map':
     if args.from_repository not in REPOSITORIES:
-        parser.error('FROMKEY repository "{}" unknown'.format(args.repository))
+        parser.error('FROMKEY repository "{}" unknown'.format(args.from_repository))
     if args.to_repository not in REPOSITORIES:
-        parser.error('TOKEY repository "{}" unknown'.format(args.repository))
+        parser.error('TOKEY repository "{}" unknown'.format(args.to_repository))
 
     ConnectDb(args)
 
-    for mapping in MapRepositories(args.from_repository, args.to_repository):
+    from_key = getattr(Namespace, args.from_repository)
+    to_key = getattr(Namespace, args.to_repository)
+    for mapping in MapRepositories(from_key, to_key):
         print("\t".join(mapping))
 else:
     parser.error('wrong number of arguments')

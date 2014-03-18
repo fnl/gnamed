@@ -96,7 +96,7 @@ class Parser(AbstractLoader):
             return 0
 
         row = List1_Line._make(Parser._toItems(line, 12))
-        db_key = DBRef(Namespace.mgd, row.id)
+        db_key = DBRef(Namespace.mgi, row.id)
         record = self._getRecord(db_key)
         record.chromosome = row.chromosome
 
@@ -122,14 +122,14 @@ class Parser(AbstractLoader):
             for feat in row.feature_types.split('|'):
                 record.addKeyword(feat.strip())
 
-        logging.debug('parsed %s:%s (%s)', Namespace.mgd, row.id, row.symbol)
+        logging.debug('parsed %s:%s (%s)', Namespace.mgi, row.id, row.symbol)
         return 1
 
     def _parseUniProt(self, line: str):
         row = SwissProt_TrEMBL_Line._make(Parser._toItems(line, 7))
 
         if row.accessions:
-            db_key = DBRef(Namespace.mgd, row.id)
+            db_key = DBRef(Namespace.mgi, row.id)
             record = self._getRecord(db_key)
 
             for acc in row.accessions.split():
@@ -143,7 +143,7 @@ class Parser(AbstractLoader):
         row = EntrezGene_Line._make(Parser._toItems(line, 15))
 
         if row.gene_id:
-            db_key = DBRef(Namespace.mgd, row.id)
+            db_key = DBRef(Namespace.mgi, row.id)
             record = self._getRecord(db_key)
             ref = DBRef(Namespace.entrez, row.gene_id)
             record.addDBRef(ref)
@@ -181,7 +181,7 @@ class Parser(AbstractLoader):
                         assert any(r.namespace == Namespace.entrez
                                    for r in record.refs), record.refs
                         record.refs = {r for r in record.refs if
-                                       r.namespace == Namespace.mgd}
+                                       r.namespace == Namespace.mgi}
                         assert len(record.refs) == 1, record.refs
                         self._loadRecord(db_key, record)
                     else:

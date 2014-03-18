@@ -5,6 +5,7 @@
 .. moduleauthor:: Florian Leitner <florian.leitner@gmail.com>
 .. License: GNU GPL v3 (http://www.gnu.org/licenses/gpl.html)
 """
+import logging
 #import sqlalchemy
 
 from sqlalchemy.ext.declarative import declarative_base
@@ -56,7 +57,14 @@ def RetrieveStrings(repo_key):
     """
     if IsProteinRepo(repo_key):
         return RetrieveProteinStrings(repo_key)
+    else:
+        return RetrieveGeneStrings(repo_key)
 
+
+def RetrieveGeneStrings(repo_key):
+    """
+    Retrieve accession, category, name/symbol strings for a gene repostiory.
+    """
     session = Session()
 
     for instance in session.query(
@@ -170,19 +178,24 @@ def MapRepositories(from_key, to_key):
         return MapProteinRepositories(from_key, to_key)
     elif IsProteinRepo(to_key):
         return MapProteinRepositories(to_key, from_key)
+    else:
+        return MapGeneRepositories(from_key, to_key)
 
+
+def MapGeneRepositories(from_key, to_key):
     session = Session()
+    logging.info("mapping between %s and %s", from_key, to_key)
 
     for instance in session.query("from_id", "to_id").from_statement(
         """
-        SELECT from.accession AS from_id, to.accession AS to_id
-            FROM gene_refs AS from
+        SELECT g1.accession AS from_id, g2.accession AS to_id
+            FROM gene_refs AS g1
             JOIN genes
                 USING (id)
-            JOIN gene_refs AS to
+            JOIN gene_refs AS g2
                 USING (id)
-            WHERE from.namespace = :from_key
-                AND to.namespace = :to_key
+            WHERE g1.namespace = :from_key
+                AND g2.namespace = :to_key
         """
     ).params(from_key=from_key, to_key=to_key).all():
         yield instance
@@ -190,6 +203,7 @@ def MapRepositories(from_key, to_key):
 
 def MapProteinRepositories(protein_key, gene_key):
     session = Session()
+    logging.info("mapping between %s proteins and %s genes", protein_key, gene_key)
 
     for instance in session.query("protein_id", "gene_id").from_statement(
         """

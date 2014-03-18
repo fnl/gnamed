@@ -22,13 +22,13 @@ Line = namedtuple('Line', [
     'previous_symbols', 'previous_names', 'synonyms', 'name_synonyms',
     'location', 'pmids',
     'gene_family_symbols', 'gene_family_names',
-    Namespace.entrez, 'Namespace_ensemble', Namespace.mgd,
+    Namespace.entrez, 'Namespace_ensemble', Namespace.mgi,
     Namespace.uniprot, Namespace.rgd
 ])
 
 DB_REFS = [Namespace.entrez,
            Namespace.uniprot]
-FIX_ACCESSION = frozenset({Namespace.mgd, Namespace.rgd})
+FIX_ACCESSION = frozenset({Namespace.mgi, Namespace.rgd})
 
 # Mapping of references to other DBs that are not correct to their
 # right IDs; This mostly is about HGNC linking to wrong Entrez Gene IDs.

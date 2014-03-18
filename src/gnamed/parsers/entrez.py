@@ -64,7 +64,7 @@ TRANSLATE = {
     'ECOCYC': Namespace.ecocyc,
     'FLYBASE': Namespace.flybase,
     'HGNC': Namespace.hgnc,
-    'MGI': Namespace.mgd,
+    'MGI': Namespace.mgi,
     'RGD': Namespace.rgd,
     'SGD': Namespace.sgd,
     'TAIR': Namespace.tair,

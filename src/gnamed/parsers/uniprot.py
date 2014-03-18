@@ -43,7 +43,7 @@ def translate_HGNC(items: list):
 
 def translate_MGI(items: list):
     assert items[0].startswith('MGI:'), items
-    yield DBRef(Namespace.mgd, items[0].split(':')[1])
+    yield DBRef(Namespace.mgi, items[0].split(':')[1])
 
 
 def translate_PomBase(items: list):
