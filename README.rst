@@ -78,13 +78,14 @@ Boostrap the DB with the NCBI Taxonomy files::
 Usage
 =====
 
-The option ``-h``/``--help`` show usage information for the ``gnamed`` tool.
-In general, the tools is used as::
+The option ``-h``/``--help`` shows the usage information for this tool.
+In general, the syntax is::
 
-    gnamed [-o/--options] COMMAND [ARGUMENT...]
+    gnamed [OPTION...] COMMAND [ARGUMENT...]
 
 Most options pertain to database configuration (username, password, URL/DSN,
-etc.) and reporting (debug/info/warn/error).
+etc.) and reporting (debug/info/warn/error) and can be placed anywhere (i.e.,
+before, after, or even between the command and its arguments).
 
 The commands ``fetch`` (download) and ``load`` (into the DB) are used to
 store any repository as required, e.g., for Entrez Gene::
