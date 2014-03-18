@@ -25,6 +25,8 @@ repositories can be extracted with ``gnamed map``.
 Supported Repositories
 ======================
 
+Supported repositories and their keys, in the suggested load order:
+
 - **Entrez Gene** (key: ``entrez``)
 - **UniProt** (key: ``uniprot``) [to fetch only SwissProt, specify ``swissprot``]
 - FlyBase (key: ``flybase``)
@@ -76,28 +78,55 @@ Boostrap the DB with the NCBI Taxonomy files::
 Usage
 =====
 
-Fetch and load any repository as required; e.g.::
+The option ``-h``/``--help`` show usage information for the ``gnamed`` tool.
+In general, the tools is used as::
+
+    gnamed [-o/--options] COMMAND [ARGUMENT...]
+
+Most options pertain to database configuration (username, password, URL/DSN,
+etc.) and reporting (debug/info/warn/error).
+
+The commands ``fetch`` (download) and ``load`` (into the DB) are used to
+store any repository as required, e.g., for Entrez Gene::
 
     gnamed fetch entrez -d /tmp
     gunzip /tmp/gene_info.gz /tmp/gene2pubmed.gz
     gnamed load entrez /tmp/gene2pubmed /tmp/gene_info
 
-Sometimes, repositories are downloaded as text files; e.g.::
+Most repositories are downloaded as single files; e.g.::
 
     gnamed fetch hgnc
     gnamed load hgnc hgnc.csv
 
-To see a list of available repositories, use::
-
-    gnamed --list
-
 **Important:** The order in which repositories are loaded *does* matter,
 particularly for setting gene and protein metadata (chromosome, location,
 length, mass). The last repository loaded will always overwrite this metadata.
-So it is advisable to first load the generic repositories (Entrez, UniProt)
+So it is advisable to first load the generic repositories (Entrez and UniProt)
 and only then load the specific ones (HGNC, MGD, RGD, etc.) to set the "true"
-metadata. (I.e., use the order described in the section "Supported
-Repositories").
+metadata. That means, adhere to the order described in the section "Supported
+Repositories".
+
+To see the ``list`` of available repositories, use::
+
+    gnamed list
+
+To work with the content of the loaded database, two commands are
+available; firstly, ``display``::
+
+    gnamed display KEY
+
+This command lists all known names, symbols, and keywords for the given
+repository KEY (for example, "hgnc" or "uniprot") - assuming that the
+respective repository has been loaded into the DB, naturally.
+
+Finally, to determine the "official" mappings used in the database between
+the loaded repositories, the ``map`` command is provided; E.g., to map
+from Entrez Gene IDs to UniProt Accessions::
+
+    gnamed map entrez uniprot
+
+This will print a n:m mapping of Entrez GIs and UniProt Accessions,
+one mapping per line, separated by a tabulator.
 
 Taxonomy
 ========
@@ -123,20 +152,21 @@ Fast Loading
 
 Given that loading **Entrez Gene** and **UniProt** can take a very long time
 (days or weeks) if they are loaded using the default mechanism, a fast DB
-dump mechanism (using "``COPY FROM`` stream") is available for those DBs,
-circumventing the ORM and its dreadful ``INSERT`` statements. These dumps are
-implemented directly with the underlying DB drivers. Therefore, only the
-following DBs are currently supported with fast loading:
+dump mechanism (using "``COPY FROM`` in-memory-file") is available for those
+two DBs, circumventing the SQL Alchemy ORM and the dreadfully slow ``INSERT``
+statements. These dumps are implemented directly with the underlying DB
+drivers. Therefore, only the following DBs and drivers support this fast
+loading mechanism:
 
-- PostgreSQL (suffix -pg; driver: **psycopg2**)
+- *PostgreSQL* (suffix -pg); driver: **psycopg2**
 
 To use fast loading, the first repository to load into a just initialized
-database (i.e., only containing the NCBI Taxonomy) must be Entrez. Then the
+database (i.e., only containing the NCBI Taxonomy) *must* be Entrez. Then the
 two UniProt files (or only SwissProt, if you do not want to use TrEMBL) may
-be fast-loaded and finally all other repositories should be added in any
-preferred order. To activate the fast loader instead of the regular
-Parser/ORM mechanism, append the suffix ``pg`` to the repository key,
-e.g., to fast load Entrez into a Postgres DB use:
+be fast-loaded. After this, all other repositories can be added in any
+preferred order (without the fast loading mechanism). To activate the fast
+loader instead of the regular Parser/ORM mechanism, append the suffix
+``pg`` to the repository key, e.g., to fast load Entrez into a Postgres DB use:
 ``gnamed load entrezpg gene2pubmed gene_info``.
 
 Note that if you decide to use SQLight as your DB, the way the ORM dumps data
