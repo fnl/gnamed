@@ -1,9 +1,9 @@
 ======
 gnamed
 ======
----------------------------------------------------------------------
-a command-line tool to bootstrap a database of gene and protein names
----------------------------------------------------------------------
+----------------------------------------------------------------------
+a command-line tool to manage a unified database of genes and proteins
+----------------------------------------------------------------------
 
 ``gnamed`` is a tool to download gene/protein name records, bootstrap a
 database to store them, and load the gene/protein names into that datastore,
