@@ -283,7 +283,7 @@ elif args.command == 'count':
     key = getattr(Namespace, args.repository)
 
     for result in RetrieveCiteCounts(key):
-        print("\t".join(result))
+        print("%s\t%i" % result)
 elif args.command == 'map':
     if args.from_repository not in REPOSITORIES:
         parser.error('FROMKEY repository "{}" unknown'.format(args.from_repository))
