@@ -152,6 +152,11 @@ elif _cmd == 'display':
         'repository', metavar='KEY',
         help="repository key to display"
     )
+elif _cmd == 'count':
+    parser.add_argument(
+        'repository', metavar='KEY',
+        help="repository key to display"
+    )
 elif _cmd == 'map':
     parser.add_argument(
         'from_repository', metavar='FROMKEY',
