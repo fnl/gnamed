@@ -9,8 +9,8 @@ import logging
 #import sqlalchemy
 
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import engine
-from sqlalchemy.orm import relationship, backref
+from sqlalchemy import engine, func
+from sqlalchemy.orm import aliased, backref, relationship
 from sqlalchemy.orm.session import sessionmaker
 from sqlalchemy.schema import Column, ForeignKey, Sequence, Table
 from sqlalchemy.types import BigInteger, Integer, String, Text
@@ -53,7 +53,7 @@ def IsProteinRepo(key):
 
 def RetrieveStrings(repo_key):
     """
-    Retrieve accession, category, name/symbol strings for a repostiory key.
+    Retrieve accession, category, name/symbol strings for a repository key.
     """
     if IsProteinRepo(repo_key):
         return RetrieveProteinStrings(repo_key)
@@ -63,7 +63,7 @@ def RetrieveStrings(repo_key):
 
 def RetrieveGeneStrings(repo_key):
     """
-    Retrieve accession, category, name/symbol strings for a gene repostiory.
+    Retrieve accession, category, name/symbol strings for a gene repository.
     """
     session = Session()
 
@@ -173,6 +173,44 @@ def RetrieveProteinStrings(repo_key):
         yield instance
 
 
+def RetrieveCiteCounts(repo_key):
+    """
+    Retrieve accession string, reference counts for a repository key.
+    """
+    if IsProteinRepo(repo_key):
+        return RetrieveProteinCounts(repo_key)
+    else:
+        return RetrieveGeneCounts(repo_key)
+
+
+def RetrieveGeneCounts(repo_key):
+    session = Session()
+    logging.info("counting %s gene references", repo_key)
+
+    for instance in session.query(
+        GeneRef.accession, func.count(Gene2PubMed.pmid)
+    ).filter(
+        GeneRef.id == Gene2PubMed.id
+    ).filter(
+        GeneRef.namespace == repo_key
+    ).group_by(GeneRef.accession):
+        yield instance
+
+
+def RetrieveProteinCounts(repo_key):
+    session = Session()
+    logging.info("counting %s protein references", repo_key)
+
+    for instance in session.query(
+        ProteinRef.accession, func.count(Protein2PubMed.pmid)
+    ).filter(
+        ProteinRef.id == Protein2PubMed.id
+    ).filter(
+        ProteinRef.namespace == repo_key
+    ).group_by(ProteinRef.accession):
+        yield instance
+
+
 def MapRepositories(from_key, to_key):
     if IsProteinRepo(from_key):
         return MapProteinRepositories(from_key, to_key)
@@ -183,40 +221,52 @@ def MapRepositories(from_key, to_key):
 
 
 def MapGeneRepositories(from_key, to_key):
+    """
+    SELECT g1.accession AS from_id, g2.accession AS to_id
+        FROM gene_refs AS g1
+        JOIN genes
+            USING (id)
+        JOIN gene_refs AS g2
+            USING (id)
+        WHERE g1.namespace = :from_key
+            AND g2.namespace = :to_key
+    """
     session = Session()
     logging.info("mapping between %s and %s", from_key, to_key)
+    g1 =  aliased(GeneRef)
+    g2 =  aliased(GeneRef)
 
-    for instance in session.query("from_id", "to_id").from_statement(
-        """
-        SELECT g1.accession AS from_id, g2.accession AS to_id
-            FROM gene_refs AS g1
-            JOIN genes
-                USING (id)
-            JOIN gene_refs AS g2
-                USING (id)
-            WHERE g1.namespace = :from_key
-                AND g2.namespace = :to_key
-        """
-    ).params(from_key=from_key, to_key=to_key).all():
+    for instance in session.query(
+        g1.accession, g2.accession
+    ).join(Gene, g1.id).join(g2, Gene.id).filter(
+        g1.namespace == from_key
+    ).filter(
+        g2.namespace == to_key
+    ):
         yield instance
 
 
 def MapProteinRepositories(protein_key, gene_key):
+    """
+    SELECT p.accession AS protein_id, g.accession AS gene_id
+        FROM protein_refs AS p
+        JOIN genes2proteins AS g2p
+            ON (g2p.protein_id = p.id)
+        JOIN gene_refs AS g
+            ON (g2p.gene_id = g.id)
+        WHERE p.namespace = :protein_key
+            AND g.namespace = :gene_key
+    """
     session = Session()
-    logging.info("mapping between %s proteins and %s genes", protein_key, gene_key)
+    logging.info("mapping %s genes to %s proteins", gene_key, protein_key)
 
-    for instance in session.query("protein_id", "gene_id").from_statement(
-        """
-        SELECT p.accession AS protein_id, g.accession AS gene_id
-            FROM protein_refs AS p
-            JOIN genes2proteins AS g2p
-                ON (g2p.protein_id = p.id)
-            JOIN gene_refs AS g
-                ON (g2p.gene_id = g.id)
-            WHERE p.namespace = :protein_key
-                AND g.namespace = :gene_key
-        """
-    ).params(protein_key=protein_key, gene_key=gene_key).all():
+    for instance in session.query(
+        GeneRef.accession, ProteinRef.accession
+    ).join(Gene, GeneRef.id).join(Gene.proteins).join(Protein.refs).filter(
+        GeneRef.namespace == gene_key
+    ).filter(
+        ProteinRef.namespace == protein_key
+    ):
         yield instance
 
 
