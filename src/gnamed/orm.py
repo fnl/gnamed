@@ -238,7 +238,7 @@ def MapGeneRepositories(from_key, to_key):
 
     for instance in session.query(
         g1.accession, g2.accession
-    ).join(Gene, g1.id).join(g2, Gene.id).filter(
+    ).filter(g1.id == g2.id).filter(
         g1.namespace == from_key
     ).filter(
         g2.namespace == to_key
@@ -262,7 +262,11 @@ def MapProteinRepositories(protein_key, gene_key):
 
     for instance in session.query(
         GeneRef.accession, ProteinRef.accession
-    ).join(Gene, GeneRef.id).join(Gene.proteins).join(Protein.refs).filter(
+    ).join(
+        Gene, GeneRef.id == Gene.id
+    ).join(Gene.proteins).join(
+        ProteinRef, Protein.refs
+    ).filter(
         GeneRef.namespace == gene_key
     ).filter(
         ProteinRef.namespace == protein_key
