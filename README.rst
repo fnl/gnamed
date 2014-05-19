@@ -22,6 +22,12 @@ but mapped to one of the imported repository can be extracted with
 ``gnamed display``, and mappings between the identifiers ("accessions") of
 repositories can be extracted with ``gnamed map``.
 
+.. image:: https://zenodo.org/badge/doi/10.5281/zenodo.9969.png
+   :target: https://zenodo.org/record/9969
+   :alt: DOI:10.5281/zenodo.9969
+
+DOI:10.5281/zenodo.9969
+
 Supported Repositories
 ======================
 

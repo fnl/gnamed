@@ -2,7 +2,7 @@
 .
 .TH GNAMED  "" "" ""
 .SH NAME
-gnamed \- a command-line tool to bootstrap a database of gene and protein names
+gnamed \- a command-line tool to manage a unified database of genes and proteins
 .
 .nr rst2man-indent-level 0
 .
@@ -47,6 +47,10 @@ stored in \fBprotein_strings\fP with the category key (column \fBcat\fP) set to
 but mapped to one of the imported repository can be extracted with
 \fBgnamed display\fP, and mappings between the identifiers ("accessions") of
 repositories can be extracted with \fBgnamed map\fP\&.
+\fI\%[image: DOI:10.5281/zenodo.9969/https://zenodo.org/badge/doi/10.5281/zenodo.9969.png]
+\fP
+.sp
+DOI:10.5281/zenodo.9969
 .SH SUPPORTED REPOSITORIES
 .sp
 Supported repositories and their keys, in the suggested load order:
@@ -149,21 +153,22 @@ gnamed init /tmp/nodes.dmp /tmp/names.dmp /tmp/merged.dmp
 .UNINDENT
 .SH USAGE
 .sp
-The option \fB\-h\fP/\fB\-\-help\fP show usage information for the \fBgnamed\fP tool.
-In general, the tools is used as:
+The option \fB\-h\fP/\fB\-\-help\fP shows the usage information for this tool.
+In general, the syntax is:
 .INDENT 0.0
 .INDENT 3.5
 .sp
 .nf
 .ft C
-gnamed [\-o/\-\-options] COMMAND [ARGUMENT...]
+gnamed [OPTION...] COMMAND [ARGUMENT...]
 .ft P
 .fi
 .UNINDENT
 .UNINDENT
 .sp
 Most options pertain to database configuration (username, password, URL/DSN,
-etc.) and reporting (debug/info/warn/error).
+etc.) and reporting (debug/info/warn/error) and can be placed anywhere (i.e.,
+before, after, or even between the command and its arguments).
 .sp
 The commands \fBfetch\fP (download) and \fBload\fP (into the DB) are used to
 store any repository as required, e.g., for Entrez Gene:
